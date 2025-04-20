@@ -21,7 +21,7 @@ This plugin automates certificate issuance and renewal using the DNS-01 challeng
 
 **Disclaimer:**
 
-- This plugin modifies SSL settings in Unraid, specifically the self-signed certificate located in `/boot/config/ssl/certs/`.
+- This plugin modifies SSL settings in Unraid, specifically overwriting the self-signed certificate located in `/boot/config/ssl/certs/`.
 
 ¹ Pull requests welcome! Contributions to add support for other ACME providers and challenge types are encouraged.
 Head over to the [GitHub repository](https://github.com/morgendagen/Unraid-WebGUI-SSL) to contribute.
