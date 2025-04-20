@@ -34,6 +34,7 @@ rm -f $(ls &plugin;/&name;*.txz 2>/dev/null|grep -v '&version;')
 <!-- The 'post-install' script. -->
 <FILE Run="/bin/bash">
 <INLINE>
+mkdir -p &plugin;
 wget -O &plugin;/&name;-&version;-noarch-1.txz https://github.com/morgendagen/Unraid-Secure-WebGUI/releases/download/&version;/&name;-&version;-noarch-1.txz
 upgradepkg --install-new &plugin;/&name;-&version;-noarch-1.txz
 chmod a+x /usr/share/&name;/scripts/*
