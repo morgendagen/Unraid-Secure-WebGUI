@@ -1,0 +1,96 @@
+<?xml version='1.0' standalone='yes'?>
+
+<!DOCTYPE PLUGIN [
+    <!ENTITY name        "ACME">
+    <!ENTITY author      "morgendagen">
+    <!ENTITY version     "2025.04.20">
+    <!ENTITY pluginURL   "https://raw.githubusercontent.com/morgendagen/Unraid-Secure-WebGUI/refs/heads/main/ACME.plg">
+    <!ENTITY plugin      "/boot/config/plugins/&name;">
+    <!ENTITY emhttp      "/usr/local/emhttp/plugins/&name;">
+    <!ENTITY supportURL  "https://github.com/morgendagen/Unraid-Secure-WebGUI">
+]>
+
+<PLUGIN
+    name="&name;"
+    author="&author;"
+    version="&version;"
+    pluginURL="&pluginURL;"
+    support="&supportURL;"
+>
+
+<CHANGES>
+
+###2024.12.14
+- Initial release.
+</CHANGES>
+
+<!-- Remove old plugin packages -->
+<FILE Run="/bin/bash">
+<INLINE>
+rm -f $(ls &plugin;/&name;*.txz 2>/dev/null|grep -v '&version;')
+</INLINE>
+</FILE>
+
+<!-- Install plugin files -->
+<FILE Name="&plugin;/&name;-&version;-noarch-1.txz"  Run="upgradepkg --install-new">
+    <URL>https://github.com/morgendagen/Unraid-Secure-WebGUI/releases/download&version;/&name;-&version;-noarch-1.txz</URL>
+</FILE>
+
+<!-- The 'post-install' script. -->
+<FILE Run="/bin/bash">
+<INLINE>
+chmod a+x /usr/share/&name;/scripts/*
+/usr/share/&name;/acme.sh/acme.sh --config-home &plugin; --home /usr/share/ACME/acme.sh --install-cronjob
+echo ""
+echo "-----------------------------------------------------------"
+echo " &name; has been installed."
+echo " Copyright 2025, Peder Toftegaard Olsen &lt;peder@morgendagen.dk&gt;"
+echo " Version: &version;"
+echo "-----------------------------------------------------------"
+echo ""
+</INLINE>
+</FILE>
+
+<!--
+The 'remove' script.
+-->
+<FILE Run="/bin/bash" Method="remove">
+<INLINE>
+echo "+=============================================================================="
+echo "| Uninstalling cron job"
+echo "+=============================================================================="
+
+/usr/share/ACME/acme.sh/acme.sh --config-home &plugin; --home &emhttp;/acmesh --uninstall-cronjob
+
+echo "+=============================================================================="
+echo "| Removing &plugin; package"
+echo "+=============================================================================="
+
+removepkg &name;-&version;-noarch-1
+
+echo "+=============================================================================="
+echo "| Deleting &plugin;"
+echo "+=============================================================================="
+
+# Remove plugin.
+rm -rf &plugin;
+
+echo "+=============================================================================="
+echo "| Deleting &emhttp;"
+echo "+=============================================================================="
+
+# Remove plugin.
+rm -rf &emhttp;
+
+echo "+=============================================================================="
+echo "| Deleting /usr/share/ACME"
+echo "+=============================================================================="
+
+rm -rf /usr/share/ACME
+
+echo ""
+echo ""
+</INLINE>
+</FILE>
+
+</PLUGIN>
