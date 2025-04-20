@@ -1,0 +1,32 @@
+Menu="OtherSettings"
+Title="Secure WebGUI"
+Type="xmenu"
+Icon="ACME_bw.png"
+Tag="lock"
+---
+<?php
+require("/usr/local/emhttp/plugins/ACME/include/ACME.php");
+
+$acme = new ACME();
+$cert1URL = _var($var,'NAME','tower').(_var($var,'LOCAL_TLD') ? '.'._var($var,'LOCAL_TLD') : '');
+$cert1File = "/boot/config/ssl/certs/"._var($var,'NAME','tower')."_unraid_bundle.pem";
+
+$savedEnvironment = $acme->getSavedEnvironment();
+$currentDnsApi = $acme->getDnsApi($cert1URL);
+?>
+
+<script type="module">
+    import { ACME } from '/plugins/ACME/js/ACME.js?5'
+    var acme = new ACME();
+    acme.setCurrentEnvironment(<?=json_encode($savedEnvironment)?>);
+    acme.setCurrentDnsProvider("<?=$currentDnsApi?>");
+    window.acme = acme;
+</script>
+
+<p>
+Before proceeding, make sure you have configured a valid local TLD in
+<a href="/Settings/ManagementAccess">Management Access</a>.
+
+Once you have a valid certificate, head back to <a href="/Settings/ManagementAccess">Management Access</a>
+and enable "Use SSL/TLS".
+</p>

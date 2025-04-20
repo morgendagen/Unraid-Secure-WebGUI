@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if [[ ! -v CERT_PATH ]]; then
+    echo "Posting failure notification..."
+    /usr/local/emhttp/webGui/scripts/notify \
+        -e "Secure WebGUI" \
+        -s "Certificate renewal failed" \
+        -d "SSL certificate was not renewed" \
+        -i alert
+fi

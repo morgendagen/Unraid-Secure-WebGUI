@@ -1,0 +1,68 @@
+Menu="ACME:2"
+Title="DNS-01 Challenge Configuration"
+Tag="gears"
+---
+<form id='acme_issue' markdown="1" method="POST" onsubmit="event.preventDefault(); postIssueForm($(this));">
+<input type="hidden" name="ACME_DOMAIN" value="<?=$cert1URL?>">
+<input type="hidden" name="ACME_CERT_FILE" value="<?=$cert1File?>">
+
+_(Certificate URL)_:
+: <b><?=$cert1URL?></b>
+
+_(Certificate location)_:
+: <b><?=$cert1File?></b> <em>overwritten by plugin</em>
+
+_(DNS Provider)_:
+: <select id="ACME_DNSAPI" name="ACME_DNSAPI" onchange="acme.dnsProviderChanged(this)">
+  </select>
+
+<div id="ACME_DNSAPI_OPTIONS">
+</div>
+
+&nbsp;
+: <input type="checkbox" id="ACME_FORCE_RENEWAL" name="ACME_FORCE_RENEWAL" value="force"><label for="ACME_FORCE_RENEWAL">Force certificate renewal</span></label>
+
+&nbsp;
+: <input type="checkbox" id="ACME_USE_STAGING" name="ACME_USE_STAGING" value="staging"><label for="ACME_USE_STAGING">Use staging server, for testing</span></label>
+
+&nbsp;
+: <input type="submit" value="_(Issue Certificate)_"> <i id="acme_issue_status"></i>
+</form>
+
+<script>
+  function postIssueForm($form) {
+    acme.createSwal("Issuing Certificate", "<?=_('Done')?>");
+
+    var serializedData = $form.serialize();
+    $('#acme_issue :input').prop("disabled", true);
+    $('#acme_issue_status').text("Please Wait...");
+
+    var request = $.ajax({
+      url: '/plugins/ACME/include/IssueCertificate.php',
+      type: 'post',
+      data: serializedData
+    })
+    request.done(function (response, textStatus, jqXHR) {
+      try {
+        var jsonResponse = JSON.parse(response);
+        $('#acme_issue_status').text("");
+      } catch {
+        $('#acme_issue_status').text(textStatus);
+      }
+    });
+
+    request.fail(function (jqXHR, textStatus, errorThrown) {
+      try {
+        var jsonResponse = JSON.parse(response);
+        $('#acme_issue_status').text(jsonResponse.status);
+      } catch {
+        $('#acme_issue_status').text(textStatus);
+      }
+    });
+
+    request.always(function() {
+      $('#acme_issue :input').prop("disabled", false);
+      acme.enableSwalButtons();
+    });
+  }
+</script>

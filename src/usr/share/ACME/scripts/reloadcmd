@@ -1,0 +1,39 @@
+#!/bin/bash
+# See https://github.com/acmesh-official/acme.sh/discussions/4548#discussioncomment-6797825
+
+if [[ "$#" -ne 1 ]]; then
+    echo "Illegal number of parameters"
+    exit 1
+fi
+if [[ ! -v CERT_FULLCHAIN_PATH ]]; then
+    echo "CERT_FULLCHAIN_PATH is not set"
+    exit 1
+fi
+if [[ ! -v CERT_KEY_PATH ]]; then
+    echo "CERT_KEY_PATH is not set"
+    exit 1
+fi
+if [ ! -f "$0" ]; then
+    echo "$0 does not exist."
+    exit 1
+fi
+if [ ! -f "$CERT_FULLCHAIN_PATH" ]; then
+    echo "$CERT_FULLCHAIN_PATH does not exist."
+    exit 1
+fi
+if [ ! -f "$CERT_KEY_PATH" ]; then
+    echo "$CERT_KEY_PATH does not exist."
+    exit 1
+fi
+
+echo "Installing certificate..."
+cat "$CERT_FULLCHAIN_PATH" "$CERT_KEY_PATH" > "$1"
+
+echo "Reloading nginx..."
+/etc/rc.d/rc.nginx reload
+
+echo "Posting notification..."
+/usr/local/emhttp/webGui/scripts/notify \
+    -e "Secure WebGUI" \
+    -s "Certificate renewed" \
+    -d "SSL certificate for $Le_Domain was renewed"

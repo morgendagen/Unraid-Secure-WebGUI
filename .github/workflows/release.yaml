@@ -1,0 +1,29 @@
+name: Release Package
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  container-job:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+  
+      - name: Extract build version
+        id: get_version
+        uses: battila7/get-version-action@v2
+
+      - name: Build package
+        uses: addnab/docker-run-action@v3
+        with:
+          image: aclemons/slackware:15.0
+          options: -v ${{ github.workspace }}:/workspace -e VERSION=${{ steps.get_version.outputs.version-without-v }}
+          run: |
+            cd /workspace
+            ./scripts/build_package.sh
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: archive/ACME-*.txz

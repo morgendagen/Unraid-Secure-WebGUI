@@ -1,0 +1,75 @@
+Menu="ACME:1"
+Title="ZeroSSL Registration"
+Tag="user"
+---
+<?PHP
+$email = $acme->getZeroSSLAccountEmail();
+?>
+
+<p>
+    This plugin uses ZeroSSL as the certificate provider. ZeroSSL requires
+    registration before ordering free certificates.
+</p>
+<form id='acme_zerossl_account' markdown="1" method="POST" onsubmit="event.preventDefault(); postZeroSSLAccountForm($(this));">
+
+_(Email Address)_:
+: <input type="email" name="email" value="<?=$email?>">
+
+&nbsp;
+<?php if($email == "") : ?>
+: <input type="hidden" name="function" value="register">
+: <button type="submit">_(Register)_</button>
+<?php else : ?>
+: <input type="hidden" name="function" value="update">
+: <button type="submit">_(Update Registration)_</button>
+<?php endif; ?>
+<i id="acme_zerossl_status"></i>
+</form>
+
+<script>
+  var success = false;
+
+  function onDone() {
+    if (success) {
+      location.reload();
+    }
+  }
+
+  function postZeroSSLAccountForm($form) {
+    success = false;
+    acme.createSwal("ZeroSSL Registration", "<?=_('Done')?>", onDone);
+
+    var serializedData = $form.serialize();
+    $('#acme_zerossl_account :input').prop("disabled", true);
+    $('#acme_zerossl_status').text("Please Wait...");
+
+    var request = $.ajax({
+      url: '/plugins/ACME/include/ZeroSSL/Account.php',
+      type: 'post',
+      data: serializedData
+    })
+    request.done(function (response, textStatus, jqXHR) {
+      try {
+        var jsonResponse = JSON.parse(response);
+        $('#acme_zerossl_status').text("");
+        success = true;
+      } catch {
+        $('#acme_zerossl_status').text(textStatus);
+      }
+    });
+
+    request.fail(function (jqXHR, textStatus, errorThrown) {
+      try {
+        var jsonResponse = JSON.parse(response);
+        $('#acme_zerossl_status').text(jsonResponse.status);
+      } catch {
+        $('#acme_zerossl_status').text(textStatus);
+      }
+    });
+
+    request.always(function() {
+      $('#acme_zerossl_account :input').prop("disabled", false);
+      acme.enableSwalButtons();
+    });
+  }
+</script>
