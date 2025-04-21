@@ -35,8 +35,13 @@ rm -f $(ls &plugin;/&name;*.txz 2>/dev/null|grep -v '&version;')
 <FILE Run="/bin/bash">
 <INLINE>
 mkdir -p &plugin;
-wget -O &plugin;/&name;-&version;-noarch-1.txz https://github.com/morgendagen/Unraid-Secure-WebGUI/releases/download/&version;/&name;-&version;-noarch-1.txz
-upgradepkg --install-new &plugin;/&name;-&version;-noarch-1.txz
+if [[ ! -f &plugin;/&name;-&version;-noarch-1.txz ]]; then
+    echo "+=============================================================================="
+    echo "| Downloading &name;-&version;-noarch-1.txz"
+    echo "+=============================================================================="
+    wget -O &plugin;/&name;-&version;-noarch-1.txz https://github.com/morgendagen/Unraid-Secure-WebGUI/releases/download/&version;/&name;-&version;-noarch-1.txz
+fi
+upgradepkg --install-new --reinstall &plugin;/&name;-&version;-noarch-1.txz
 chmod a+x /usr/share/&name;/scripts/*
 /usr/share/&name;/acme.sh/acme.sh --config-home &plugin; --home /usr/share/ACME/acme.sh --install-cronjob
 echo ""
