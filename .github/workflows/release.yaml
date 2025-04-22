@@ -51,4 +51,4 @@ jobs:
       
       - name: MD5
         run: |
-          echo "MD5; `md5sum -b archive/ACME-${{ steps.get_version.outputs.version-without-v }}-noarch-1.txz  | awk '{print $1}'`"
+          echo "MD5: `md5sum -b archive/ACME-${{ steps.get_version.outputs.version-without-v }}-noarch-1.txz  | awk '{print $1}'`"
