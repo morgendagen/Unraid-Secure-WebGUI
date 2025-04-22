@@ -3,8 +3,10 @@
 <!DOCTYPE PLUGIN [
     <!ENTITY name        "ACME">
     <!ENTITY author      "morgendagen">
-    <!ENTITY version     "2025.04.20">
-    <!ENTITY pluginURL   "https://raw.githubusercontent.com/morgendagen/Unraid-Secure-WebGUI/refs/heads/main/ACME.plg">
+    <!ENTITY version     "2025.04.22">
+    <!ENTITY md5         "a12f72179d5851c3de446c7bc5ffe790">
+    <!ENTITY githubURL   "https://raw.githubusercontent.com/morgendagen/Unraid-Secure-WebGUI">
+    <!ENTITY pluginURL   "&githubURL;/main/ACME.plg">
     <!ENTITY plugin      "/boot/config/plugins/&name;">
     <!ENTITY emhttp      "/usr/local/emhttp/plugins/&name;">
     <!ENTITY supportURL  "https://forums.unraid.net/topic/189395-plugin-secure-unraid-webgui-with-acmesh/">
@@ -24,6 +26,11 @@
 - Initial release.
 </CHANGES>
 
+<FILE Name="&plugin;/&name;-&version;-noarch-1.txz" Run="upgradepkg --install-new --reinstall">
+<URL>&githubURL;/main/archive/&name;-&version;-noarch-1.txz</URL>
+<MD5>&md5;</MD5>
+</FILE>
+
 <!-- Remove old plugin packages -->
 <FILE Run="/bin/bash">
 <INLINE>
@@ -34,19 +41,11 @@ rm -f $(ls &plugin;/&name;*.txz 2>/dev/null|grep -v '&version;')
 <!-- The 'post-install' script. -->
 <FILE Run="/bin/bash">
 <INLINE>
-mkdir -p &plugin;
-if [[ ! -f &plugin;/&name;-&version;-noarch-1.txz ]]; then
-    echo "+=============================================================================="
-    echo "| Downloading &name;-&version;-noarch-1.txz"
-    echo "+=============================================================================="
-    wget -O &plugin;/&name;-&version;-noarch-1.txz https://github.com/morgendagen/Unraid-Secure-WebGUI/releases/download/&version;/&name;-&version;-noarch-1.txz
-fi
-upgradepkg --install-new --reinstall &plugin;/&name;-&version;-noarch-1.txz
 chmod a+x /usr/share/&name;/scripts/*
 /usr/share/&name;/acme.sh/acme.sh --config-home &plugin; --home /usr/share/ACME/acme.sh --install-cronjob
 echo ""
 echo "-----------------------------------------------------------"
-echo " &name; has been installed."
+echo " Unraid-Secure-WebGUI has been installed."
 echo " Copyright 2025, Peder Toftegaard Olsen &lt;peder@morgendagen.dk&gt;"
 echo " Version: &version;"
 echo "-----------------------------------------------------------"
