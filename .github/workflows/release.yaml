@@ -40,6 +40,7 @@ jobs:
       - name: Add binary to archive folder
         run: |
           cd main-repo
+          mkdir -p archive
           cp ../archive/ACME-${{ steps.get_version.outputs.version-without-v }}-noarch-1.txz archive/
           git branch
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
