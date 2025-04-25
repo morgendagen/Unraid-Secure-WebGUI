@@ -51,6 +51,7 @@ class ACME {
 
     function zeroSSLRegisterAccount($email) {
         $retval = null;
+        $email = escapeshellarg($email);
         $cmd = $this->acmeshCommand() . " --register-account -m $email";
         $retval = $this->run($cmd);
         if ($retval == 0) {
@@ -62,6 +63,7 @@ class ACME {
 
     function zeroSSLUpdateAccount($email) {
         $retval = null;
+        $email = escapeshellarg($email);
         $cmd = $this->acmeshCommand() . " --update-account -m $email";
         $retval = $this->run($cmd);
         if ($retval == 0) {
@@ -72,7 +74,7 @@ class ACME {
     }
 
     function getSavedEnvironment() {
-        $cmd = $this->acmeshCommand() . " --info";
+        $cmd = escapeshellcmd($this->acmeshCommand() . " --info");
         exec($cmd, $output);
         $a = array();
         foreach($output as $index => $string) {
@@ -90,7 +92,8 @@ class ACME {
     }
 
     function getDnsApi($domain) {
-        $cmd = $this->acmeshCommand() . " --info --domain " . $domain;
+        $domain = escapeshellarg($domain);
+        $cmd = escapeshellcmd($this->acmeshCommand() . " --info --domain " . $domain);
         exec($cmd, $output);
         foreach($output as $index => $string) {
             if (str_starts_with($string, "Le_Webroot=")) {
@@ -120,6 +123,7 @@ class ACME {
     }
     
     function run($command, $verbose = false) {
+        $command = escapeshellcmd($command);
         if ($verbose) {
             $this->nchanWrite("--- Executing $command", "");
         } else {
