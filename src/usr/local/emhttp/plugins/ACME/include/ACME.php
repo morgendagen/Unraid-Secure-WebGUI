@@ -49,12 +49,7 @@ class ACME {
         return "";
     }
 
-    function mustRegister() {
-        return $this->getZeroSSLAccountEmail() == "";
-    }
-
     function zeroSSLRegisterAccount($email) {
-        $output = null;
         $retval = null;
         $cmd = $this->acmeshCommand() . " --register-account -m $email";
         $retval = $this->run($cmd);
@@ -66,7 +61,6 @@ class ACME {
     }
 
     function zeroSSLUpdateAccount($email) {
-        $output = null;
         $retval = null;
         $cmd = $this->acmeshCommand() . " --update-account -m $email";
         $retval = $this->run($cmd);
@@ -93,11 +87,6 @@ class ACME {
             }
         }
         return $a;
-    }
-
-    function getDomains() {
-        $cmd = $this->acmeshCommand() . " --list --listraw";
-        exec($cmd, $output);
     }
 
     function getDnsApi($domain) {
