@@ -65,13 +65,14 @@ export class ACME {
             // dd->input
             const input = document.createElement("input");
             dd.appendChild(input);
+            input.setAttribute("autocomplete", "off");
             if (/password/i.test(value.Name) || /token/i.test(value.Name) || /key/i.test(value.Name)) {
                 input.setAttribute("type", "password");
+                input.setAttribute("autocomplete", "new-password");
             } else {
                 input.setAttribute("type", "text");
             }
             input.setAttribute("name", value.Name);
-            input.setAttribute("autocomplete", "off");
             input.setAttribute("spellcheck", "false");
             input.setAttribute("placeholder", value.Default);
             let currentValue = this._currentEnvironment[value.Name];
