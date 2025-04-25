@@ -15,13 +15,10 @@ $certFile = $_POST["ACME_CERT_FILE"];
 $forceRenewal = $_POST["ACME_FORCE_RENEWAL"];
 $useStaging = $_POST["ACME_USE_STAGING"];
 
-$options = array();
-foreach ($_POST as $key => $value) {
-    if ($key != "ACME_DNSAPI" && $key != "ACME_DOMAIN") {
-        $escaped_value = escapeshellarg($value);
-        array_push($options, "$key=$escaped_value");
-    }
+function acme_options_filter($key) {
+    return !str_starts_with($key, 'ACME_');
 }
+$options = array_filter($_POST, "acme_options_filter", ARRAY_FILTER_USE_KEY);
 
 $retval = $acme->issueCertificate(
     dnsProvider: $dnsProvider,

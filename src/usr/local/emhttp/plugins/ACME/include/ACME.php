@@ -14,7 +14,13 @@ class ACME {
     }
 
     function issueCertificate($dnsProvider, $domain, $certFile, $options, $forceRenewal, $useStaging) {
-        $optionsString = join(" ", $options);
+        $escapedOptions = array();
+        foreach ($options as $key => $value) {
+            $escaped_value = escapeshellarg($value);
+            array_push($escapedOptions, "$key=$escaped_value");
+        }
+
+        $optionsString = join(" ", $escapedOptions);
         $reloadcmd = "/usr/share/ACME/scripts/reloadcmd $certFile";
         $posthook = "/usr/share/ACME/scripts/post-hook";
 
