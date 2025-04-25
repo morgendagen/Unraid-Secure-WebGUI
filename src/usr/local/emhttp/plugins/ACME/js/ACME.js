@@ -20,6 +20,9 @@ export class ACME {
         this.loadDnsProviders();
     }
 
+    /**
+     * Load the list of supported DNS providers.
+     */
     loadDnsProviders() {
         var self = this;
         $.ajax({
@@ -35,14 +38,31 @@ export class ACME {
         });
     }
 
+    /**
+     * Set the currently active DNS provider environment options.
+     * 
+     * @param {Map<string,string>} env 
+     */
     setCurrentEnvironment(env) {
         this._currentEnvironment = env;
     }
 
+    /**
+     * Set the id of the currently active DNS provider.
+     * 
+     * @param {string} dnsProvider 
+     */
     setCurrentDnsProvider(dnsProvider) {
         this._currentDnsProvider = dnsProvider;
     }
 
+    /**
+     * Invoked whenever the selected DNS provider changes.
+     * 
+     * Will update the UI for inputting DNS provider specific options.
+     * 
+     * @param {*} sel SELECT element.
+     */
     dnsProviderChanged(sel) {
         var selectedIndex = sel.selectedIndex;
         var dnsProviderInfo = this._dnsProviders[selectedIndex];
@@ -106,10 +126,24 @@ export class ACME {
         });
     }
 
+    /**
+     * Show/hide help for a DNS provider option.
+     * 
+     * @param {number} optionIndex Option index.
+     */
     toggleHelp(optionIndex) {
         $('.acmeHelpinfo'+optionIndex).toggle('slow');
     }
     
+    /**
+     * Create SWAL container for showing command execution output.
+     * 
+     * The "Done" button is initially disabled.
+     * 
+     * @param {string} title Title.
+     * @param {string} confirmButtonText "Done" button text.
+     * @param {function} onDone Function to invoke when user hits the "Done" button.
+     */
     createSwal(title, confirmButtonText, onDone=null) {
         var self = this;
         swal({
@@ -134,6 +168,9 @@ export class ACME {
         this._nchanSubscriber.start();
     }
 
+    /**
+     * Enable the SWAL container "Done" button.
+     */
     enableSwalButtons() {
         swal.enableButtons();
     }

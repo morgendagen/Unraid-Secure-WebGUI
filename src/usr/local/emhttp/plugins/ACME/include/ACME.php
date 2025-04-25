@@ -1,9 +1,13 @@
 <?php
 
 class ACME {
+    /** The plugin's config directory. */
     public $plugin;
+    /** The plugin's emhttp directory. */
     public $emhttp;
+    /** The install location of `acme.sh`. */
     public $acmeshHome;
+    /** The `acme.sh` config home directory. */
     public $acmeshConfigHome;
 
     function __construct() {
@@ -13,6 +17,17 @@ class ACME {
         $this->acmeshConfigHome = $this->plugin;
     }
 
+    /**
+     * Issue a certificate.
+     * 
+     * @param string $dnsProvider Selected dns provider.
+     * @param string $domain Domain to issue certificate for.
+     * @param string $certFile Location of the resulting nginx certificate bundle file.
+     * @param array $options Options for the dns provider.
+     * @param bool $forceRenewal Set to `true` to force certificate renewal.
+     * @param bool $useStaging Set to `true` to use staging/test acme server.
+     * @return integer Result code from `acme.sh`.
+     */
     function issueCertificate($dnsProvider, $domain, $certFile, $options, $forceRenewal, $useStaging) {
         $escapedOptions = array();
         foreach ($options as $key => $value) {
@@ -34,6 +49,11 @@ class ACME {
         return $this->run($cmd);
     }
 
+    /**
+     * Get the email address used for ZeroSSL account registration.
+     * 
+     * @return string Email address or an empty string if no ZeroSSL account has been registered.
+     */
     function getZeroSSLAccountEmail() {
         $account_path = $this->acmeshConfigHome . "/ca/acme.zerossl.com/v2/DV90/account.json";
         $json_string = file_get_contents($account_path);
@@ -49,6 +69,11 @@ class ACME {
         return "";
     }
 
+    /**
+     * Create the ZeroSSL account.
+     * 
+     * @param string $email Account email.
+     */
     function zeroSSLRegisterAccount($email) {
         $retval = null;
         $email = escapeshellarg($email);
@@ -61,6 +86,11 @@ class ACME {
         }
     }
 
+    /**
+     * Update the ZeroSSL account.
+     * 
+     * @param string $email New account email.
+     */
     function zeroSSLUpdateAccount($email) {
         $retval = null;
         $email = escapeshellarg($email);
@@ -73,6 +103,11 @@ class ACME {
         }
     }
 
+    /**
+     * Get the saved dns provider options.
+     * 
+     * @return array The saved dns provider options.
+     */
     function getSavedEnvironment() {
         $cmd = escapeshellcmd($this->acmeshCommand() . " --info");
         exec($cmd, $output);
@@ -91,6 +126,11 @@ class ACME {
         return $a;
     }
 
+    /**
+     * Get the currently used dns provider.
+     * 
+     * @return DNS provider id or an empty string if no certificate has yet been issued.
+     */
     function getDnsApi($domain) {
         $domain = escapeshellarg($domain);
         $cmd = escapeshellcmd($this->acmeshCommand() . " --info --domain " . $domain);
@@ -103,10 +143,16 @@ class ACME {
         return "";
     }
 
+    /**
+     * Returns command string for invoking the `acme.sh`.
+     */
     function acmeshCommand() {
         return $this->acmeshHome . "/acme.sh --config-home " . $this->acmeshConfigHome . " --home " . $this->acmeshHome;
     }
 
+    /**
+     * Write messages to the plugin's nchan channel.
+     */
     function nchanWrite(...$messages){
         $com = curl_init();
         curl_setopt_array($com,[
@@ -122,6 +168,9 @@ class ACME {
         curl_close($com);
     }
     
+    /**
+     * Execute a command and send output to the plugin's nchan channel.
+     */
     function run($command, $verbose = false) {
         $command = escapeshellcmd($command);
         if ($verbose) {
