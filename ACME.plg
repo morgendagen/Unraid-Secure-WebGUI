@@ -3,8 +3,8 @@
 <!DOCTYPE PLUGIN [
     <!ENTITY name        "ACME">
     <!ENTITY author      "morgendagen">
-    <!ENTITY version     "2026.06.24">
-    <!ENTITY md5         "a70d6e043e9f7fb2106b19270aa8a1b8">
+    <!ENTITY version     "2026.06.24a">
+    <!ENTITY md5         "3457efa6b138120e8caa11f0daec903e">
     <!ENTITY githubURL   "https://raw.githubusercontent.com/morgendagen/Unraid-Secure-WebGUI">
     <!ENTITY pluginURL   "&githubURL;/main/ACME.plg">
     <!ENTITY plugin      "/boot/config/plugins/&name;">
@@ -21,6 +21,9 @@
 >
 
 <CHANGES>
+###2026.06.24a
+- Fixed issue downloading the new dnsapi_info.txt file due to caching.
+
 ###2026.06.24
 - Fixed issue where modified .js files were not being loaded correctly due to caching.
 
