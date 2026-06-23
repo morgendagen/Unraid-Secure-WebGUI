@@ -1,0 +1,13 @@
+<Plugin>
+  <Name>ACME</Name>
+  <Overview>Secure your Unraid WebGUI with a free and trusted SSL certificate using [acme.sh](https://acme.sh) and [ZeroSSL¹](https://zerossl.com).</Overview>
+  <PluginURL>https://raw.githubusercontent.com/morgendagen/Unraid-Secure-WebGUI/main/ACME.plg</PluginURL>
+  <PluginAuthor>Peder Toftegaard Olsen (morgendagen)</PluginAuthor>
+  <Support>https://forums.unraid.net/topic/189395-plugin-secure-unraid-webgui-with-acmesh/</Support>
+  <Project>https://github.com/morgendagen/Unraid-Secure-WebGUI</Project>
+  <ReadMe>https://raw.githubusercontent.com/morgendagen/Unraid-Secure-WebGUI/main/README.md</ReadMe>
+  <Beta>False</Beta>
+  <Category>Security: Tools:System</Category>
+  <Icon>https://raw.githubusercontent.com/morgendagen/Unraid-Secure-WebGUI/main/src/usr/local/emhttp/plugins/ACME/images/ACME.png</Icon>
+  <License>MIT</License>
+</Plugin>
