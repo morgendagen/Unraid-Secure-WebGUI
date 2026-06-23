@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PLUGIN_NAME="ACME"
-ACME_VERSION="3.1.0"
+ACME_VERSION="3.1.3"
 
 if [[ ! -v VERSION ]]; then
     echo "VERSION is not set"

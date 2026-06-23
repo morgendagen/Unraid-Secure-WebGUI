@@ -125,7 +125,7 @@ function parseOpts(options) {
         }
         let opt = new DnsApiInfoOpt()
         opt.Name = optLine.substring(0, posName)
-        let posTitle = optLine.indexOf('.')
+        let posTitle = optLine.indexOf('. ')
         if (posTitle <= 0) {
             opt.Title = optLine.substring(posName + 1)
         } else {

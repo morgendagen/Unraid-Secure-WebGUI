@@ -14,14 +14,14 @@ $email = $acme->getZeroSSLAccountEmail();
 
 _(Email Address)_:
 : <input type="email" name="email" value="<?=$email?>">
+<?php if($email == "") : ?>
 
 &nbsp;
-<?php if($email == "") : ?>
-: <input type="hidden" name="function" value="register">
-: <button type="submit">_(Register)_</button>
+: <input type="submit" value="_(Register)_"><input type="hidden" name="function" value="register">
 <?php else : ?>
-: <input type="hidden" name="function" value="update">
-: <button type="submit">_(Update Registration)_</button>
+
+&nbsp;
+: <input type="submit" value="_(Update Registration)_"><input type="hidden" name="function" value="update">
 <?php endif; ?>
 <i id="acme_zerossl_status"></i>
 </form>

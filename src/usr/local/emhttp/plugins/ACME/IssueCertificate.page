@@ -16,7 +16,30 @@ _(DNS Provider)_:
 : <select id="ACME_DNSAPI" name="ACME_DNSAPI" onchange="acme.dnsProviderChanged(this)">
   </select>
 
+<div id="ACME_DNSAPI_SHARED_OPTIONS">
+  <dl></dl>
+</div>
+
+<div id="ACME_DNSAPI_CHOOSE_OPTIONS_1">
+  <dl>
+    <dt>&nbsp;</dt>
+    <dd><h2 style="margin: 0">Choose one set of Options</h2></dd>
+  </dl>
+</div>
+
 <div id="ACME_DNSAPI_OPTIONS">
+  <dl></dl>
+</div>
+
+<div id="ACME_DNSAPI_CHOOSE_OPTIONS_2">
+  <dl>
+    <dt>&nbsp;</dt>
+    <dd><h2 style="margin: 0">OR</h2></dd>
+  </dl>
+</div>
+
+<div id="ACME_DNSAPI_ALTERNATIVE_OPTIONS">
+  <dl></dl>
 </div>
 
 &nbsp;
