@@ -1,0 +1,31 @@
+<CommunityApplications>
+  <!-- Required profile -->
+  <Profile>
+**Secure Unraid WebGUI with acme.sh**
+
+Secure your Unraid WebGUI with a free and trusted SSL certificate using [acme.sh](https://acme.sh) and [ZeroSSL¹](https://zerossl.com).
+
+This plugin automates certificate issuance and renewal using the DNS-01 challenge¹, allowing you to enable HTTPS access to your server without relying on open ports or public web access.
+
+**Features:**
+
+- Use your own domain or subdomain for secure access
+- Easily obtain certificates from ZeroSSL¹
+- Uses the DNS-01 challenge method (API credentials required)¹
+- Keeps your WebGUI secure with scheduled certificate renewals
+- Notifications to stay informed about renewals or issues
+- Built on the flexible, scriptable acme.sh ACME client
+- Free tier ZeroSSL account creation
+
+**Requirements:**
+
+- DNS provider supported by acme.sh (e.g., Cloudflare, Route53, etc.)¹
+- An account with ZeroSSL (free tier supported)¹
+  </Profile>
+  <!-- Optional icon -->
+  <Icon>https://raw.githubusercontent.com/morgendagen/Unraid-Secure-WebGUI/main/src/usr/local/emhttp/plugins/ACME/images/ACME.png</Icon>
+  <!-- Optional web page -->
+  <WebPage>https://github.com/morgendagen/Unraid-Secure-WebGUI</WebPage>
+  <!-- Optional support and donation links -->
+  <Forum>https://forums.unraid.net/topic/189395-plugin-secure-unraid-webgui-with-acmesh/</Forum>
+</CommunityApplications>
