@@ -3,7 +3,7 @@
 <!DOCTYPE PLUGIN [
     <!ENTITY name        "ACME">
     <!ENTITY author      "morgendagen">
-    <!ENTITY version     "2025.04.22">
+    <!ENTITY version     "2026.06.23">
     <!ENTITY md5         "a12f72179d5851c3de446c7bc5ffe790">
     <!ENTITY githubURL   "https://raw.githubusercontent.com/morgendagen/Unraid-Secure-WebGUI">
     <!ENTITY pluginURL   "&githubURL;/main/ACME.plg">
@@ -21,6 +21,10 @@
 >
 
 <CHANGES>
+###2026.06.23
+- Updated acme.sh to version 3.1.3.
+- Add support for alternative options.
+
 ###2025.04.22
 - Disclaimer clarification.
 
