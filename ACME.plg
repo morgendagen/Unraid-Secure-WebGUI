@@ -3,8 +3,8 @@
 <!DOCTYPE PLUGIN [
     <!ENTITY name        "Secure Unraid WebGUI with acme.sh">
     <!ENTITY author      "morgendagen">
-    <!ENTITY version     "2026.06.23">
-    <!ENTITY md5         "71e10af5c8005d6e066646d6b88ee9e5">
+    <!ENTITY version     "2026.06.24">
+    <!ENTITY md5         "a70d6e043e9f7fb2106b19270aa8a1b8">
     <!ENTITY githubURL   "https://raw.githubusercontent.com/morgendagen/Unraid-Secure-WebGUI">
     <!ENTITY pluginURL   "&githubURL;/main/ACME.plg">
     <!ENTITY plugin      "/boot/config/plugins/&name;">
@@ -21,6 +21,9 @@
 >
 
 <CHANGES>
+###2026.06.24
+- Fixed issue where modified .js files were not being loaded correctly due to caching.
+
 ###2026.06.23
 - Updated acme.sh to version 3.1.3.
 - Add support for alternative options.
