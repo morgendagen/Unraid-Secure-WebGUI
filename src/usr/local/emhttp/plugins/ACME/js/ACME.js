@@ -1,6 +1,6 @@
 "use strict";
-import { AnsiUp } from './ansi_up.js'
-import { parseFile } from './dnsapi.js'
+import { AnsiUp } from './ansi_up.js?6'
+import { parseFile } from './dnsapi.js?6'
 
 export class ACME {
     constructor() {

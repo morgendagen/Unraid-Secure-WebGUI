@@ -16,7 +16,7 @@ $currentDnsApi = $acme->getDnsApi($cert1URL);
 ?>
 
 <script type="module">
-    import { ACME } from '/plugins/ACME/js/ACME.js?5'
+    import { ACME } from '/plugins/ACME/js/ACME.js?6'
     var acme = new ACME();
     acme.setCurrentEnvironment(<?=json_encode($savedEnvironment)?>);
     acme.setCurrentDnsProvider("<?=$currentDnsApi?>");
