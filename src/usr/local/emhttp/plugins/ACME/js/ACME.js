@@ -56,6 +56,87 @@ export class ACME {
         this._currentDnsProvider = dnsProvider;
     }
 
+    addOptionsSection(id, opts) {
+        let optionsDiv = document.getElementById(id);
+        if (opts.Options.length > 0) {
+            optionsDiv.style.display = 'block';
+            let dl = optionsDiv.querySelector("dl");
+            dl.innerHTML = "";
+            if (opts.Title) {
+                let optionsHeader = document.createElement("b");
+                optionsHeader.innerText = opts.Title + ":";
+                optionsHeader.setAttribute("style", "text-decoration: underline;");
+                let headerDT = document.createElement("dt");
+                dl.appendChild(headerDT);
+                let headerDD = document.createElement("dd");
+                dl.appendChild(headerDD);
+                headerDT.appendChild(optionsHeader);
+                headerDD.innerHTML = "&nbsp;";
+            }
+            opts.Options.forEach((value, index, arr) => {
+                this.addOption(dl, value, id, index);
+            });
+        } else {
+            optionsDiv.style.display = 'none';
+            let dl = optionsDiv.querySelector("dl");
+            dl.innerHTML = "";
+        }
+    }
+
+    addOption(dl, value, id, index) {
+        const helpId = id + "_" + index;
+        // dt
+        const dt = document.createElement("dt");
+        dl.appendChild(dt);
+        dt.setAttribute("onclick", "acme.toggleHelp('" + helpId +"')");
+        dt.setAttribute("style", "cursor:help");
+        dt.innerText = value.Title + ":";
+        // dd
+        const dd = document.createElement("dd");
+        dl.appendChild(dd);
+        // dd->input
+        const input = document.createElement("input");
+        dd.appendChild(input);
+        input.setAttribute("autocomplete", "off");
+        if (/password/i.test(value.Name) || /token/i.test(value.Name) || /key/i.test(value.Name)) {
+            input.setAttribute("type", "password");
+            input.setAttribute("autocomplete", "new-password");
+        } else {
+            input.setAttribute("type", "text");
+        }
+        input.setAttribute("name", value.Name);
+        input.setAttribute("spellcheck", "false");
+        input.setAttribute("placeholder", value.Default);
+        let currentValue = this._currentEnvironment[value.Name];
+        if (currentValue) {
+            input.setAttribute("value", currentValue);
+        }
+        if (value.Optional) {
+            if (value.Default == "") {
+                input.setAttribute("placeholder", "(optional)");
+            }
+        } else {
+            input.setAttribute("required", "required");
+        }
+        // blockquote
+        const blockquote = document.createElement("blockquote");
+        dd.appendChild(blockquote);
+        blockquote.setAttribute("class", "inline_help acmeHelpinfo"+helpId);
+        blockquote.setAttribute("style", "display: none;");
+        const p1 = document.createElement("p");
+        blockquote.appendChild(p1);
+        var helpText = value.Name;
+        if (value.Optional) {
+            helpText += " (optional)";
+        }
+        p1.innerHTML = helpText;
+        if (value.Description) {
+            const p1 = document.createElement("p");
+            blockquote.appendChild(p1);
+            p1.innerText = value.Description;
+        }
+    }
+
     /**
      * Invoked whenever the selected DNS provider changes.
      * 
@@ -68,62 +149,54 @@ export class ACME {
         var dnsProviderInfo = this._dnsProviders[selectedIndex];
         console.log("api:",dnsProviderInfo);
     
-        let optionsDiv = document.getElementById("ACME_DNSAPI_OPTIONS");
-        optionsDiv.innerHTML = "";
-        dnsProviderInfo.Opts.forEach((value, index, arr) => {
-            const dl = document.createElement("dl");
-            optionsDiv.appendChild(dl);
-            // dt
-            const dt = document.createElement("dt");
-            dl.appendChild(dt);
-            dt.setAttribute("onclick", "acme.toggleHelp("+ index +")");
-            dt.setAttribute("style", "cursor:help");
-            dt.innerText = value.Title + ":";
-            // dd
-            const dd = document.createElement("dd");
-            dl.appendChild(dd);
-            // dd->input
-            const input = document.createElement("input");
-            dd.appendChild(input);
-            input.setAttribute("autocomplete", "off");
-            if (/password/i.test(value.Name) || /token/i.test(value.Name) || /key/i.test(value.Name)) {
-                input.setAttribute("type", "password");
-                input.setAttribute("autocomplete", "new-password");
-            } else {
-                input.setAttribute("type", "text");
+        const optsDict = Object.fromEntries(
+            dnsProviderInfo.Opts.map(item => [item.Name, item])
+        );
+        const optsAltDict = Object.fromEntries(
+            dnsProviderInfo.OptsAlt.map(item => [item.Name, item])
+        );
+        const sharedKeys = Object.keys(optsDict).filter(key => key in optsAltDict);
+        let sharedOpts = [];
+        sharedKeys.forEach(key => {
+            const opt = optsDict[key];
+            const optAlt = optsAltDict[key];
+            let sharedOpt = { ...optsDict[key] };
+            if (opt.Description && optAlt.Description) {
+                sharedOpt.Description += "\nor\n" + optAlt.Description;
+            } else if (optAlt.Description) {
+                sharedOpt.Description = optAlt.Description;
             }
-            input.setAttribute("name", value.Name);
-            input.setAttribute("spellcheck", "false");
-            input.setAttribute("placeholder", value.Default);
-            let currentValue = this._currentEnvironment[value.Name];
-            if (currentValue) {
-                input.setAttribute("value", currentValue);
-            }
-            if (value.Optional) {
-                if (value.Default == "") {
-                    input.setAttribute("placeholder", "(optional)");
-                }
-            } else {
-                input.setAttribute("required", "required");
-            }
-            // blockquote
-            const blockquote = document.createElement("blockquote");
-            dl.appendChild(blockquote);
-            blockquote.setAttribute("class", "inline_help acmeHelpinfo"+index);
-            blockquote.setAttribute("style", "display: none;");
-            const p1 = document.createElement("p");
-            blockquote.appendChild(p1);
-            var helpText = value.Name;
-            if (value.Optional) {
-                helpText += " (optional)";
-            }
-            p1.innerText = helpText;
-            if (value.Description) {
-                const p1 = document.createElement("p");
-                blockquote.appendChild(p1);
-                p1.innerText = value.Description;
-            }
+            sharedOpts.push(sharedOpt);
         });
+        // Removed shared options from the options lists
+        for (const key of sharedKeys) {
+            delete optsDict[key];
+            delete optsAltDict[key];
+        }
+        const shared = {
+            Title: "Shared Options",
+            Options: sharedOpts
+        };
+        const opts = {
+            Title: dnsProviderInfo.OptsTitle,
+            Options: Object.values(optsDict)
+        };
+        const optsAlt = {
+            Title: dnsProviderInfo.OptsAltTitle,
+            Options: Object.values(optsAltDict)
+        };
+
+        this.addOptionsSection("ACME_DNSAPI_SHARED_OPTIONS", shared);
+        this.addOptionsSection("ACME_DNSAPI_OPTIONS", opts);
+        this.addOptionsSection("ACME_DNSAPI_ALTERNATIVE_OPTIONS", optsAlt);
+        if (opts.Options.length > 0 && optsAlt.Options.length > 0) {
+            document.getElementById("ACME_DNSAPI_CHOOSE_OPTIONS_1").style.display = "block";
+            document.getElementById("ACME_DNSAPI_CHOOSE_OPTIONS_2").style.display = "block";
+        } else {
+            document.getElementById("ACME_DNSAPI_CHOOSE_OPTIONS_1").style.display = "none";
+            document.getElementById("ACME_DNSAPI_CHOOSE_OPTIONS_2").style.display = "none";
+        }
+
     }
 
     /**
