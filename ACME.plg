@@ -1,7 +1,7 @@
 <?xml version='1.0' standalone='yes'?>
 
 <!DOCTYPE PLUGIN [
-    <!ENTITY name        "Secure Unraid WebGUI with acme.sh">
+    <!ENTITY name        "ACME">
     <!ENTITY author      "morgendagen">
     <!ENTITY version     "2026.06.24">
     <!ENTITY md5         "a70d6e043e9f7fb2106b19270aa8a1b8">
