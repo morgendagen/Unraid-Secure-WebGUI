@@ -26,7 +26,7 @@ export class ACME {
     loadDnsProviders() {
         var self = this;
         $.ajax({
-            url:'/plugins/ACME/dnsapi_info.txt',
+            url:'/plugins/ACME/dnsapi_info.txt?6',
             success:function(infoTxt) {
                 self._dnsProviders = parseFile(infoTxt)
                 var dnsapiSelect = document.getElementById("ACME_DNSAPI");
