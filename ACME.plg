@@ -4,7 +4,7 @@
     <!ENTITY name        "ACME">
     <!ENTITY author      "morgendagen">
     <!ENTITY version     "2026.06.23">
-    <!ENTITY md5         "a12f72179d5851c3de446c7bc5ffe790">
+    <!ENTITY md5         "71e10af5c8005d6e066646d6b88ee9e5">
     <!ENTITY githubURL   "https://raw.githubusercontent.com/morgendagen/Unraid-Secure-WebGUI">
     <!ENTITY pluginURL   "&githubURL;/main/ACME.plg">
     <!ENTITY plugin      "/boot/config/plugins/&name;">
