@@ -56,7 +56,7 @@ export class ACME {
         this._currentDnsProvider = dnsProvider;
     }
 
-    addOptionsSection(id, opts) {
+    addOptionsSection(id, opts, ignoreRequired) {
         let optionsDiv = document.getElementById(id);
         if (opts.Options.length > 0) {
             optionsDiv.style.display = 'block';
@@ -74,7 +74,7 @@ export class ACME {
                 headerDD.innerHTML = "&nbsp;";
             }
             opts.Options.forEach((value, index, arr) => {
-                this.addOption(dl, value, id, index);
+                this.addOption(dl, value, id, index, ignoreRequired);
             });
         } else {
             optionsDiv.style.display = 'none';
@@ -83,7 +83,7 @@ export class ACME {
         }
     }
 
-    addOption(dl, value, id, index) {
+    addOption(dl, value, id, index, ignoreRequired) {
         const helpId = id + "_" + index;
         // dt
         const dt = document.createElement("dt");
@@ -111,7 +111,7 @@ export class ACME {
         if (currentValue) {
             input.setAttribute("value", currentValue);
         }
-        if (value.Optional) {
+        if (ignoreRequired || value.Optional) {
             if (value.Default == "") {
                 input.setAttribute("placeholder", "(optional)");
             }
@@ -186,9 +186,9 @@ export class ACME {
             Options: Object.values(optsAltDict)
         };
 
-        this.addOptionsSection("ACME_DNSAPI_SHARED_OPTIONS", shared);
-        this.addOptionsSection("ACME_DNSAPI_OPTIONS", opts);
-        this.addOptionsSection("ACME_DNSAPI_ALTERNATIVE_OPTIONS", optsAlt);
+        this.addOptionsSection("ACME_DNSAPI_SHARED_OPTIONS", shared, false);
+        this.addOptionsSection("ACME_DNSAPI_OPTIONS", opts, optsAlt.Options.length > 0);
+        this.addOptionsSection("ACME_DNSAPI_ALTERNATIVE_OPTIONS", optsAlt, true);
         if (opts.Options.length > 0 && optsAlt.Options.length > 0) {
             document.getElementById("ACME_DNSAPI_CHOOSE_OPTIONS_1").style.display = "block";
             document.getElementById("ACME_DNSAPI_CHOOSE_OPTIONS_2").style.display = "block";
