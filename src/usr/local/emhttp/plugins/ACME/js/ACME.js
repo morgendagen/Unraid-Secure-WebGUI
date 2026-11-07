@@ -1,6 +1,6 @@
 "use strict";
-import { AnsiUp } from './ansi_up.js?6'
-import { parseFile } from './dnsapi.js?6'
+import { AnsiUp } from './ansi_up.js?11'
+import { parseFile } from './dnsapi.js?11'
 
 export class ACME {
     constructor() {
@@ -11,10 +11,7 @@ export class ACME {
         this._nchanSubscriber = new NchanSubscriber('/sub/acmesh',{subscriber:'websocket', reconnectTimeout:5000});
         this._nchanSubscriber.on('message', function(data) {
             var box = $('pre#swaltext');
-            const text = box.html().split('<br>');
-            var html = self._ansi_up.ansi_to_html(data);
-            text.push(html);
-            box.html(text.join('<br>')).scrollTop(box[0].scrollHeight);
+            box.append(self._ansi_up.ansi_to_html(data)).scrollTop(box[0].scrollHeight);
         });
         this._ansi_up = new AnsiUp();
         this.loadDnsProviders();

@@ -13,10 +13,11 @@ $cert1File = "/boot/config/ssl/certs/"._var($var,'NAME','tower')."_unraid_bundle
 
 $savedEnvironment = $acme->getSavedEnvironment();
 $currentDnsApi = $acme->getDnsApi($cert1URL);
+$verboseLogging = $acme->isVerboseLoggingEnabled();
 ?>
 
 <script type="module">
-    import { ACME } from '/plugins/ACME/js/ACME.js?7'
+    import { ACME } from '/plugins/ACME/js/ACME.js?11'
     var acme = new ACME();
     acme.setCurrentEnvironment(<?=json_encode($savedEnvironment)?>);
     acme.setCurrentDnsProvider("<?=$currentDnsApi?>");
