@@ -9,6 +9,12 @@ class ACME {
     public $acmeshHome;
     /** The `acme.sh` config home directory. */
     public $acmeshConfigHome;
+    /** Cached output of `acme.sh --info`. */
+    private $accountConf = null;
+
+    /** `acme.sh` syslog levels, see `acme.sh --help`. */
+    const SYSLOG_LEVEL_ERROR = 3;
+    const SYSLOG_LEVEL_DEBUG = 7;
 
     function __construct() {
         $this->plugin = '/boot/config/plugins/ACME';
@@ -26,27 +32,53 @@ class ACME {
      * @param array $options Options for the dns provider.
      * @param bool $forceRenewal Set to `true` to force certificate renewal.
      * @param bool $useStaging Set to `true` to use staging/test acme server.
+     * @param bool $verbose Set to `true` to enable verbose output. This
+     *                     shows debug output for this run and enables debug
+     *                     logging to syslog, which is persisted by `acme.sh`
+     *                     and therefore also applies to the renewal cron job.
+     *                     When `false`, only errors are logged to syslog.
      * @return integer Result code from `acme.sh`.
      */
-    function issueCertificate($dnsProvider, $domain, $certFile, $options, $forceRenewal, $useStaging) {
+    function issueCertificate($dnsProvider, $domain, $certFile, $options, $forceRenewal, $useStaging, $verbose) {
         $escapedOptions = array();
+        $redactedOptions = array();
         foreach ($options as $key => $value) {
             $escaped_value = escapeshellarg($value);
             array_push($escapedOptions, "$key=$escaped_value");
+            array_push($redactedOptions, "$key=<hidden>");
         }
 
         $optionsString = join(" ", $escapedOptions);
         $reloadcmd = "/usr/share/ACME/scripts/reloadcmd $certFile";
         $posthook = "/usr/share/ACME/scripts/post-hook";
 
-        $cmd = "$optionsString " . $this->acmeshCommand() . " --issue --dns $dnsProvider --domain $domain --force-color --reloadcmd \"$reloadcmd\" --post-hook \"$posthook\"";
+        $acmeshArgs = $this->acmeshCommand() . " --issue --dns $dnsProvider --domain $domain --force-color --reloadcmd \"$reloadcmd\" --post-hook \"$posthook\"";
         if ($forceRenewal) {
-            $cmd = $cmd . " --force";
+            $acmeshArgs .= " --force";
         }
         if ($useStaging) {
-            $cmd = $cmd . " --staging";
+            $acmeshArgs .= " --staging";
         }
-        return $this->run($cmd);
+        if ($verbose) {
+            // --debug only affects this run (output shown in the dialog).
+            // --syslog is saved in account.conf, so it also applies to `acme.sh --cron`.
+            $acmeshArgs .= " --debug 2 --syslog " . self::SYSLOG_LEVEL_DEBUG;
+        } else {
+            $acmeshArgs .= " --syslog " . self::SYSLOG_LEVEL_ERROR;
+        }
+        $cmd = "$optionsString $acmeshArgs";
+        $displayCmd = join(" ", $redactedOptions) . " $acmeshArgs";
+        return $this->run($cmd, $verbose, $displayCmd);
+    }
+
+    /**
+     * Check whether verbose (debug) logging to syslog is enabled.
+     *
+     * @return bool `true` if the saved `acme.sh` syslog level is debug or higher.
+     */
+    function isVerboseLoggingEnabled() {
+        $conf = $this->getAccountConf();
+        return intval($conf["SYS_LOG"] ?? 0) >= self::SYSLOG_LEVEL_DEBUG;
     }
 
     /**
@@ -109,21 +141,33 @@ class ACME {
      * @return array The saved dns provider options.
      */
     function getSavedEnvironment() {
-        $cmd = escapeshellcmd($this->acmeshCommand() . " --info");
-        exec($cmd, $output);
         $a = array();
-        foreach($output as $index => $string) {
-            if (str_starts_with($string, "SAVED_")) {
-                $string = substr($string, 6);
-                $s = explode("=", $string, 2);
-                if (sizeof($s) == 2) {
-                    $key = $s[0];
-                    $value = trim($s[1], "'");
-                    $a[$key] = $value;
-                }
+        foreach ($this->getAccountConf() as $key => $value) {
+            if (str_starts_with($key, "SAVED_")) {
+                $a[substr($key, 6)] = $value;
             }
         }
         return $a;
+    }
+
+    /**
+     * Get the global `acme.sh` configuration (account.conf).
+     *
+     * @return array Key/value pairs from `acme.sh --info`.
+     */
+    function getAccountConf() {
+        if ($this->accountConf === null) {
+            $cmd = escapeshellcmd($this->acmeshCommand() . " --info");
+            exec($cmd, $output);
+            $this->accountConf = array();
+            foreach ($output as $string) {
+                $s = explode("=", $string, 2);
+                if (sizeof($s) == 2) {
+                    $this->accountConf[$s[0]] = trim($s[1], "'");
+                }
+            }
+        }
+        return $this->accountConf;
     }
 
     /**
@@ -152,6 +196,8 @@ class ACME {
 
     /**
      * Write messages to the plugin's nchan channel.
+     * 
+     * @param string ...$messages Messages to write.
      */
     function nchanWrite(...$messages){
         $com = curl_init();
@@ -170,21 +216,28 @@ class ACME {
     
     /**
      * Execute a command and send output to the plugin's nchan channel.
+     * 
+     * @param string $command Command to execute.
+     * @param bool $verbose Set to `true` to show the executed command.
+     * @param string|null $displayCommand Command to show instead of `$command`,
+     *                                    e.g. with secrets redacted.
      */
-    function run($command, $verbose = false) {
-        $command = escapeshellcmd($command);
+    function run($command, $verbose = false, $displayCommand = null) {
+        $this->nchanWrite("\n");
+        $command = escapeshellcmd($command) . " 2>&1";
         if ($verbose) {
-            $this->nchanWrite("--- Executing $command", "");
+            $shown = $displayCommand ?? $command;
+            $this->nchanWrite("--- Executing command: $shown", "\n");
         } else {
-            $this->nchanWrite("--- Executing command", "");
+            $this->nchanWrite("--- Executing command", "\n");
         }
         $run = popen($command,'r');
-        while (!feof($run)) $this->nchanWrite(fgets($run));
+        while (($line = fgets($run)) !== false) $this->nchanWrite($line);
         $retval = pclose($run);
         if ($retval == 0) {
-            $this->nchanWrite("--- Successfully finished execution");
+            $this->nchanWrite("--- Successfully finished execution", "\n");
         } else {
-            $this->nchanWrite("--- Failed execution with status code $retval");
+            $this->nchanWrite("--- Failed execution with status code $retval", "\n");
         }
         return $retval;
     }

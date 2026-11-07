@@ -12,8 +12,9 @@ $response = array();
 $dnsProvider = $_POST["ACME_DNSAPI"];
 $domain = $_POST["ACME_DOMAIN"];
 $certFile = $_POST["ACME_CERT_FILE"];
-$forceRenewal = $_POST["ACME_FORCE_RENEWAL"];
-$useStaging = $_POST["ACME_USE_STAGING"];
+$forceRenewal = !empty($_POST["ACME_FORCE_RENEWAL"]);
+$verbose = !empty($_POST["ACME_VERBOSE"]);
+$useStaging = !empty($_POST["ACME_USE_STAGING"]);
 
 function acme_options_filter($key) {
     return !str_starts_with($key, 'ACME_');
@@ -26,7 +27,8 @@ $retval = $acme->issueCertificate(
     certFile: $certFile,
     options: $options,
     forceRenewal: $forceRenewal,
-    useStaging: $useStaging
+    useStaging: $useStaging,
+    verbose: $verbose
 );
 if ($retval == 0) {
     $response['status'] = 'OK';

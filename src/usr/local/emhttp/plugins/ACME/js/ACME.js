@@ -1,6 +1,6 @@
 "use strict";
-import { AnsiUp } from './ansi_up.js?6'
-import { parseFile } from './dnsapi.js?6'
+import { AnsiUp } from './ansi_up.js?11'
+import { parseFile } from './dnsapi.js?11'
 
 export class ACME {
     constructor() {
@@ -11,10 +11,7 @@ export class ACME {
         this._nchanSubscriber = new NchanSubscriber('/sub/acmesh',{subscriber:'websocket', reconnectTimeout:5000});
         this._nchanSubscriber.on('message', function(data) {
             var box = $('pre#swaltext');
-            const text = box.html().split('<br>');
-            var html = self._ansi_up.ansi_to_html(data);
-            text.push(html);
-            box.html(text.join('<br>')).scrollTop(box[0].scrollHeight);
+            box.append(self._ansi_up.ansi_to_html(data)).scrollTop(box[0].scrollHeight);
         });
         this._ansi_up = new AnsiUp();
         this.loadDnsProviders();
@@ -211,7 +208,8 @@ export class ACME {
     /**
      * Create SWAL container for showing command execution output.
      * 
-     * The "Done" button is initially disabled.
+     * The "Done" button is initially disabled, and the title is suffixed
+     * with " - Working" until `finishSwal()` is called.
      * 
      * @param {string} title Title.
      * @param {string} confirmButtonText "Done" button text.
@@ -219,8 +217,9 @@ export class ACME {
      */
     createSwal(title, confirmButtonText, onDone=null) {
         var self = this;
+        this._swalTitle = title;
         swal({
-            title:title,
+            title:title + " - Working",
             text:"<pre id='swaltext'></pre><hr>",
             html:true,
             animation:'none',
@@ -246,5 +245,16 @@ export class ACME {
      */
     enableSwalButtons() {
         swal.enableButtons();
+    }
+
+    /**
+     * Mark the SWAL container as finished: update the title to show the
+     * outcome and enable the "Done" button.
+     *
+     * @param {boolean} success `true` if the operation succeeded.
+     */
+    finishSwal(success) {
+        $('.sweet-alert h2').text(this._swalTitle + (success ? " - Completed" : " - Failed"));
+        this.enableSwalButtons();
     }
 }

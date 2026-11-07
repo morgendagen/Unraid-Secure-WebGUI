@@ -49,11 +49,16 @@ _(DNS Provider)_:
 : <input type="checkbox" id="ACME_USE_STAGING" name="ACME_USE_STAGING" value="staging"><label for="ACME_USE_STAGING">Use staging server, for testing</span></label>
 
 &nbsp;
+: <input type="checkbox" id="ACME_VERBOSE" name="ACME_VERBOSE" value="verbose"<?=$verboseLogging ? ' checked' : ''?>><label for="ACME_VERBOSE">Verbose logging, for troubleshooting</label>
+  <span><i class="fa fa-info icon info"></i> Shows debug output here and logs automatic renewals to the System Log. Issue again with this unchecked to turn it off.</span>
+
+&nbsp;
 : <input type="submit" value="_(Issue Certificate)_"> <i id="acme_issue_status"></i>
 </form>
 
 <script>
   function postIssueForm($form) {
+    var success = false;
     acme.createSwal("Issuing Certificate", "<?=_('Done')?>");
 
     var serializedData = $form.serialize();
@@ -68,7 +73,8 @@ _(DNS Provider)_:
     request.done(function (response, textStatus, jqXHR) {
       try {
         var jsonResponse = JSON.parse(response);
-        $('#acme_issue_status').text("");
+        success = jsonResponse.status == 'OK';
+        $('#acme_issue_status').text(success ? "" : jsonResponse.status);
       } catch {
         $('#acme_issue_status').text(textStatus);
       }
@@ -76,7 +82,7 @@ _(DNS Provider)_:
 
     request.fail(function (jqXHR, textStatus, errorThrown) {
       try {
-        var jsonResponse = JSON.parse(response);
+        var jsonResponse = JSON.parse(jqXHR.responseText);
         $('#acme_issue_status').text(jsonResponse.status);
       } catch {
         $('#acme_issue_status').text(textStatus);
@@ -85,7 +91,7 @@ _(DNS Provider)_:
 
     request.always(function() {
       $('#acme_issue :input').prop("disabled", false);
-      acme.enableSwalButtons();
+      acme.finishSwal(success);
     });
   }
 </script>

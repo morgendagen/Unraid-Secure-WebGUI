@@ -51,8 +51,8 @@ _(Email Address)_:
     request.done(function (response, textStatus, jqXHR) {
       try {
         var jsonResponse = JSON.parse(response);
-        $('#acme_zerossl_status').text("");
-        success = true;
+        success = jsonResponse.status == 'OK';
+        $('#acme_zerossl_status').text(success ? "" : jsonResponse.status);
       } catch {
         $('#acme_zerossl_status').text(textStatus);
       }
@@ -60,7 +60,7 @@ _(Email Address)_:
 
     request.fail(function (jqXHR, textStatus, errorThrown) {
       try {
-        var jsonResponse = JSON.parse(response);
+        var jsonResponse = JSON.parse(jqXHR.responseText);
         $('#acme_zerossl_status').text(jsonResponse.status);
       } catch {
         $('#acme_zerossl_status').text(textStatus);
@@ -69,7 +69,7 @@ _(Email Address)_:
 
     request.always(function() {
       $('#acme_zerossl_account :input').prop("disabled", false);
-      acme.enableSwalButtons();
+      acme.finishSwal(success);
     });
   }
 </script>
