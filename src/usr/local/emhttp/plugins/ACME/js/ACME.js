@@ -208,7 +208,8 @@ export class ACME {
     /**
      * Create SWAL container for showing command execution output.
      * 
-     * The "Done" button is initially disabled.
+     * The "Done" button is initially disabled, and the title is suffixed
+     * with " - Working" until `finishSwal()` is called.
      * 
      * @param {string} title Title.
      * @param {string} confirmButtonText "Done" button text.
@@ -216,8 +217,9 @@ export class ACME {
      */
     createSwal(title, confirmButtonText, onDone=null) {
         var self = this;
+        this._swalTitle = title;
         swal({
-            title:title,
+            title:title + " - Working",
             text:"<pre id='swaltext'></pre><hr>",
             html:true,
             animation:'none',
@@ -243,5 +245,16 @@ export class ACME {
      */
     enableSwalButtons() {
         swal.enableButtons();
+    }
+
+    /**
+     * Mark the SWAL container as finished: update the title to show the
+     * outcome and enable the "Done" button.
+     *
+     * @param {boolean} success `true` if the operation succeeded.
+     */
+    finishSwal(success) {
+        $('.sweet-alert h2').text(this._swalTitle + (success ? " - Completed" : " - Failed"));
+        this.enableSwalButtons();
     }
 }

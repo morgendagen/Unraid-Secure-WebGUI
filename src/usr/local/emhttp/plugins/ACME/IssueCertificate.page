@@ -58,6 +58,7 @@ _(DNS Provider)_:
 
 <script>
   function postIssueForm($form) {
+    var success = false;
     acme.createSwal("Issuing Certificate", "<?=_('Done')?>");
 
     var serializedData = $form.serialize();
@@ -72,7 +73,8 @@ _(DNS Provider)_:
     request.done(function (response, textStatus, jqXHR) {
       try {
         var jsonResponse = JSON.parse(response);
-        $('#acme_issue_status').text("");
+        success = jsonResponse.status == 'OK';
+        $('#acme_issue_status').text(success ? "" : jsonResponse.status);
       } catch {
         $('#acme_issue_status').text(textStatus);
       }
@@ -80,7 +82,7 @@ _(DNS Provider)_:
 
     request.fail(function (jqXHR, textStatus, errorThrown) {
       try {
-        var jsonResponse = JSON.parse(response);
+        var jsonResponse = JSON.parse(jqXHR.responseText);
         $('#acme_issue_status').text(jsonResponse.status);
       } catch {
         $('#acme_issue_status').text(textStatus);
@@ -89,7 +91,7 @@ _(DNS Provider)_:
 
     request.always(function() {
       $('#acme_issue :input').prop("disabled", false);
-      acme.enableSwalButtons();
+      acme.finishSwal(success);
     });
   }
 </script>

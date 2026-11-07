@@ -25,6 +25,8 @@
 - Added "Verbose logging" option for troubleshooting. Shows acme.sh debug output when issuing a certificate, and logs automatic renewals to the System Log.
 - Errors from automatic renewals are now logged to the System Log.
 - Verbose logging shows the acme.sh command being run, with DNS provider credentials hidden.
+- Popup title shows whether the operation is working, completed or failed.
+- Failed certificate issuing and ZeroSSL registration are no longer reported as successful.
 
 ###2026.08.14
 - Non-shared options must be optional when there are alternative options.
