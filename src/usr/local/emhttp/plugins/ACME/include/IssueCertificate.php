@@ -63,7 +63,17 @@ if (!$acme->isValidDnsProvider($dnsProvider)) {
                 useStaging: $useStaging,
                 verbose: $verbose
             );
-            $response['status'] = $retval == 0 ? 'OK' : 'Failed';
+            if ($retval == 0) {
+                $response['status'] = 'OK';
+            } elseif ($retval == ACME::RENEW_SKIP) {
+                $response['status'] = 'Skipped';
+                $acme->nchanWrite("\n", "--- The certificate is still valid and was not renewed.", "\n");
+                if ($prepared['changed'] || $dnsProvider !== $acme->getDnsApi($domain)) {
+                    $acme->nchanWrite("--- The DNS provider settings were changed, but are only checked and saved when a certificate is issued. Check \"Force certificate renewal\" to issue one now.", "\n");
+                }
+            } else {
+                $response['status'] = 'Failed';
+            }
         }
     }
 }

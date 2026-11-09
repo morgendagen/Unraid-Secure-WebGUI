@@ -19,6 +19,12 @@ class ACME {
     const SYSLOG_LEVEL_DEBUG = 7;
 
     /**
+     * `acme.sh` exit code when the certificate is still valid and was not
+     * renewed, see `RENEW_SKIP` in `acme.sh`.
+     */
+    const RENEW_SKIP = 2;
+
+    /**
      * Value sent to the browser in place of a saved secret. Submitting it
      * unchanged means "keep the saved value".
      */
@@ -149,7 +155,8 @@ class ACME {
      *                     logging to syslog, which is persisted by `acme.sh`
      *                     and therefore also applies to the renewal cron job.
      *                     When `false`, only errors are logged to syslog.
-     * @return integer Result code from `acme.sh`.
+     * @return integer Result code from `acme.sh`. `RENEW_SKIP` if the
+     *                 certificate is still valid and was not renewed.
      */
     function issueCertificate($dnsProvider, $domain, $certFile, $options, $forceRenewal, $useStaging, $verbose) {
         // acme.sh evaluates the reload command with a shell.
@@ -177,7 +184,7 @@ class ACME {
         } else {
             array_push($args, "--syslog", strval(self::SYSLOG_LEVEL_ERROR));
         }
-        return $this->run($args, $verbose, $options);
+        return $this->run($args, $verbose, $options, self::RENEW_SKIP);
     }
 
     /**
@@ -192,13 +199,16 @@ class ACME {
      *
      * @param string $domain Domain the certificate is issued for.
      * @param array $submitted Submitted option names and values.
-     * @return array `['options' => [name => value], 'clear' => [name]]`.
+     * @return array `['options' => [name => value], 'clear' => [name], 'changed' => bool]`,
+     *               where `changed` is `true` if any option differs from
+     *               its saved value.
      * @throws InvalidArgumentException If an option name or value is invalid.
      */
     function prepareOptions($domain, $submitted) {
         $saved = $this->getSavedOptions($domain);
         $options = array();
         $clear = array();
+        $changed = false;
         foreach ($submitted as $name => $value) {
             if (!self::isValidOptionName($name)) {
                 throw new InvalidArgumentException("Invalid option name");
@@ -216,9 +226,12 @@ class ACME {
                 }
             } else {
                 $options[$name] = $value;
+                if (($saved[$name] ?? null) !== $value) {
+                    $changed = true;
+                }
             }
         }
-        return array('options' => $options, 'clear' => $clear);
+        return array('options' => $options, 'clear' => $clear, 'changed' => $changed || count($clear) > 0);
     }
 
     /**
@@ -519,9 +532,11 @@ class ACME {
      * @param bool $verbose Set to `true` to show the executed command. Values
      *                      in `$env` are never shown.
      * @param array $env Additional environment variables, e.g. secrets.
+     * @param integer|null $skipCode Exit code meaning there was nothing to
+     *                               do, reported as skipped rather than failed.
      * @return integer Exit code.
      */
-    function run($args, $verbose = false, $env = array()) {
+    function run($args, $verbose = false, $env = array(), $skipCode = null) {
         $this->nchanWrite("\n");
         if ($verbose) {
             $shown = array();
@@ -545,6 +560,8 @@ class ACME {
         $retval = proc_close($process);
         if ($retval == 0) {
             $this->nchanWrite("--- Successfully finished execution", "\n");
+        } elseif ($retval === $skipCode) {
+            $this->nchanWrite("--- Finished execution, nothing to do", "\n");
         } else {
             $this->nchanWrite("--- Failed execution with status code $retval", "\n");
         }

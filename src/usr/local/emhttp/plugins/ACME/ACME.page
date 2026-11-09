@@ -18,7 +18,7 @@ $verboseLogging = $acme->isVerboseLoggingEnabled();
 ?>
 
 <script type="module">
-    import { ACME } from '/plugins/ACME/js/ACME.js?12'
+    import { ACME } from '/plugins/ACME/js/ACME.js?13'
     var acme = new ACME();
     acme.setSecretOptions(<?=json_encode(ACME::SECRET_PATTERN, JSON_HEX_TAG|JSON_HEX_AMP)?>, <?=json_encode(ACME::SECRET_PLACEHOLDER, JSON_HEX_TAG|JSON_HEX_AMP)?>);
     acme.setCurrentEnvironment(<?=json_encode((object)$savedEnvironment, JSON_HEX_TAG|JSON_HEX_AMP)?>);
