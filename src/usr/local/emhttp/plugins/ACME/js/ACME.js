@@ -8,6 +8,8 @@ export class ACME {
         this._dnsProviders = [];
         this._currentEnvironment = {};
         this._currentDnsProvider = null;
+        this._secretPattern = /pass|pwd|secret|token|key|auth|credential|cookie/i;
+        this._secretPlaceholder = null;
         this._nchanSubscriber = new NchanSubscriber('/sub/acmesh',{subscriber:'websocket', reconnectTimeout:5000});
         this._nchanSubscriber.on('message', function(data) {
             var box = $('pre#swaltext');
@@ -42,6 +44,19 @@ export class ACME {
      */
     setCurrentEnvironment(env) {
         this._currentEnvironment = env;
+    }
+
+    /**
+     * Configure which options are secrets. Must match the server side
+     * definition in ACME.php.
+     *
+     * @param {string} pattern Case-insensitive regular expression matched against option names.
+     * @param {string} placeholder Value the server sends in place of a saved secret.
+     *                             Submitting it unchanged keeps the saved secret.
+     */
+    setSecretOptions(pattern, placeholder) {
+        this._secretPattern = new RegExp(pattern, "i");
+        this._secretPlaceholder = placeholder;
     }
 
     /**
@@ -95,7 +110,8 @@ export class ACME {
         const input = document.createElement("input");
         dd.appendChild(input);
         input.setAttribute("autocomplete", "off");
-        if (/password/i.test(value.Name) || /token/i.test(value.Name) || /key/i.test(value.Name)) {
+        const isSecret = this._secretPattern.test(value.Name);
+        if (isSecret) {
             input.setAttribute("type", "password");
             input.setAttribute("autocomplete", "new-password");
         } else {
@@ -106,7 +122,18 @@ export class ACME {
         input.setAttribute("placeholder", value.Default);
         let currentValue = this._currentEnvironment[value.Name];
         if (currentValue) {
+            // For saved secrets this is the placeholder, not the secret.
+            // Leaving it unchanged keeps the saved secret, clearing the
+            // field clears it.
             input.setAttribute("value", currentValue);
+            if (isSecret && currentValue === this._secretPlaceholder) {
+                // Select all, so typing replaces the placeholder.
+                input.addEventListener("focus", () => {
+                    if (input.value === this._secretPlaceholder) {
+                        input.select();
+                    }
+                });
+            }
         }
         if (ignoreRequired || value.Optional) {
             if (value.Default == "") {

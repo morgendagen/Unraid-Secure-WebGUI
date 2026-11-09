@@ -11,15 +11,17 @@ $acme = new ACME();
 $cert1URL = $acme->getCertificateDomain() ?? '';
 $cert1File = $acme->getCertificateFile() ?? '';
 
-$savedEnvironment = $acme->getSavedEnvironment();
+// Secrets are replaced by ACME::SECRET_PLACEHOLDER, never send the actual values.
+$savedEnvironment = $acme->getSavedEnvironment($cert1URL);
 $currentDnsApi = $acme->getDnsApi($cert1URL);
 $verboseLogging = $acme->isVerboseLoggingEnabled();
 ?>
 
 <script type="module">
-    import { ACME } from '/plugins/ACME/js/ACME.js?11'
+    import { ACME } from '/plugins/ACME/js/ACME.js?12'
     var acme = new ACME();
-    acme.setCurrentEnvironment(<?=json_encode($savedEnvironment)?>);
+    acme.setSecretOptions(<?=json_encode(ACME::SECRET_PATTERN)?>, <?=json_encode(ACME::SECRET_PLACEHOLDER)?>);
+    acme.setCurrentEnvironment(<?=json_encode((object)$savedEnvironment)?>);
     acme.setCurrentDnsProvider("<?=$currentDnsApi?>");
     window.acme = acme;
 </script>

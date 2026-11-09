@@ -9,21 +9,46 @@ class ACME {
     public $acmeshHome;
     /** The `acme.sh` config home directory. */
     public $acmeshConfigHome;
-    /** Cached output of `acme.sh --info`. */
+    /** Cached contents of `account.conf`. */
     private $accountConf = null;
+    /** Cached output of `acme.sh --info --domain`, per domain. */
+    private $domainConf = array();
 
     /** `acme.sh` syslog levels, see `acme.sh --help`. */
     const SYSLOG_LEVEL_ERROR = 3;
     const SYSLOG_LEVEL_DEBUG = 7;
+
+    /**
+     * Value sent to the browser in place of a saved secret. Submitting it
+     * unchanged means "keep the saved value".
+     */
+    const SECRET_PLACEHOLDER = '***PASSWORD***';
+
+    /** Option names matching this (case-insensitive) pattern are secrets. */
+    const SECRET_PATTERN = 'pass|pwd|secret|token|key|auth|credential|cookie';
+
+    /** Markers used by `acme.sh` for base64 encoded config values. */
+    const B64CONF_START = '__ACME_BASE64__START_';
+    const B64CONF_END = '__ACME_BASE64__END_';
 
     /** Fallback PATH if the web server runs PHP with an empty environment. */
     const DEFAULT_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
 
     function __construct() {
         $this->plugin = '/boot/config/plugins/ACME';
-        $this->emhttp = '/usr/local/emhttp/plugins/ACME'; 
+        $this->emhttp = '/usr/local/emhttp/plugins/ACME';
         $this->acmeshHome = '/usr/share/ACME/acme.sh';
         $this->acmeshConfigHome = $this->plugin;
+    }
+
+    /**
+     * Check whether a DNS provider option holds a secret.
+     *
+     * @param string $name Option name, e.g. `CF_Token`.
+     * @return bool
+     */
+    static function isSecretOption($name) {
+        return preg_match('/' . self::SECRET_PATTERN . '/i', $name) === 1;
     }
 
     /**
@@ -112,7 +137,7 @@ class ACME {
 
     /**
      * Issue a certificate.
-     * 
+     *
      * @param string $dnsProvider Selected dns provider, see `isValidDnsProvider()`.
      * @param string $domain Domain to issue certificate for.
      * @param string $certFile Location of the resulting nginx certificate bundle file.
@@ -156,6 +181,47 @@ class ACME {
     }
 
     /**
+     * Work out which DNS provider options to pass to `acme.sh`, and which
+     * saved options to clear, from the submitted form values.
+     *
+     * - A secret submitted as `SECRET_PLACEHOLDER` keeps its saved value.
+     * - An empty value clears the saved value, if any. `acme.sh` will not do
+     *   this itself, as the dnsapi scripts fall back to the saved value
+     *   when a variable is empty.
+     * - Any other value is passed on, and saved by `acme.sh`.
+     *
+     * @param string $domain Domain the certificate is issued for.
+     * @param array $submitted Submitted option names and values.
+     * @return array `['options' => [name => value], 'clear' => [name]]`.
+     * @throws InvalidArgumentException If an option name or value is invalid.
+     */
+    function prepareOptions($domain, $submitted) {
+        $saved = $this->getSavedOptions($domain);
+        $options = array();
+        $clear = array();
+        foreach ($submitted as $name => $value) {
+            if (!self::isValidOptionName($name)) {
+                throw new InvalidArgumentException("Invalid option name");
+            }
+            if (!is_string($value)) {
+                throw new InvalidArgumentException("Invalid value for $name");
+            }
+            if (self::isSecretOption($name) && $value === self::SECRET_PLACEHOLDER) {
+                if (isset($saved[$name])) {
+                    $options[$name] = $saved[$name];
+                }
+            } elseif ($value === '') {
+                if (isset($saved[$name])) {
+                    $clear[] = $name;
+                }
+            } else {
+                $options[$name] = $value;
+            }
+        }
+        return array('options' => $options, 'clear' => $clear);
+    }
+
+    /**
      * Check whether verbose (debug) logging to syslog is enabled.
      *
      * @return bool `true` if the saved `acme.sh` syslog level is debug or higher.
@@ -167,7 +233,7 @@ class ACME {
 
     /**
      * Get the email address used for ZeroSSL account registration.
-     * 
+     *
      * @return string Email address or an empty string if no ZeroSSL account has been registered.
      */
     function getZeroSSLAccountEmail() {
@@ -187,7 +253,7 @@ class ACME {
 
     /**
      * Create the ZeroSSL account.
-     * 
+     *
      * @param string $email Account email.
      */
     function zeroSSLRegisterAccount($email) {
@@ -197,7 +263,7 @@ class ACME {
 
     /**
      * Update the ZeroSSL account.
-     * 
+     *
      * @param string $email New account email.
      */
     function zeroSSLUpdateAccount($email) {
@@ -206,18 +272,109 @@ class ACME {
     }
 
     /**
-     * Get the saved dns provider options.
-     * 
-     * @return array The saved dns provider options.
+     * Get the saved dns provider options, including secrets.
+     *
+     * `acme.sh` saves options either in `account.conf` (as `SAVED_<name>`)
+     * or, for some providers, in the domain's config (as `<name>`). The
+     * domain config takes precedence, as when `acme.sh` renews.
+     *
+     * Never send the result to the browser, use `getSavedEnvironment()`.
+     *
+     * @param string $domain Domain the certificate is issued for.
+     * @return array Option names and values.
      */
-    function getSavedEnvironment() {
-        $a = array();
+    function getSavedOptions($domain) {
+        $options = array();
         foreach ($this->getAccountConf() as $key => $value) {
             if (str_starts_with($key, "SAVED_")) {
-                $a[substr($key, 6)] = $value;
+                $name = substr($key, 6);
+                if (self::isValidOptionName($name)) {
+                    $options[$name] = $value;
+                }
             }
         }
-        return $a;
+        foreach ($this->getDomainConf($domain) as $name => $value) {
+            if ($name !== 'DOMAIN_CONF' && self::isValidOptionName($name)) {
+                $options[$name] = $value;
+            }
+        }
+        return $options;
+    }
+
+    /**
+     * Get the saved dns provider options, safe for sending to the browser:
+     * secrets are replaced by `SECRET_PLACEHOLDER`.
+     *
+     * @param string $domain Domain the certificate is issued for.
+     * @return array Option names and values.
+     */
+    function getSavedEnvironment($domain) {
+        $options = $this->getSavedOptions($domain);
+        foreach ($options as $name => $value) {
+            if (self::isSecretOption($name) && $value !== '') {
+                $options[$name] = self::SECRET_PLACEHOLDER;
+            }
+        }
+        return $options;
+    }
+
+    /**
+     * Remove a saved dns provider option from `account.conf` and the
+     * domain's config, so `acme.sh` no longer uses it.
+     *
+     * @param string $name Option name.
+     * @param string $domain Domain the certificate is issued for.
+     * @return bool `true` on success.
+     */
+    function clearSavedOption($name, $domain) {
+        if (!self::isValidOptionName($name)) {
+            return false;
+        }
+        // Same as acme.sh's _clearaccountconf_mutable: both the current
+        // SAVED_<name> and the legacy <name> form.
+        $ok = $this->removeConfLines($this->acmeshConfigHome . "/account.conf", array("SAVED_$name", $name));
+        $domainConfPath = $this->getDomainConf($domain)['DOMAIN_CONF'] ?? null;
+        if ($domainConfPath) {
+            $ok = $this->removeConfLines($domainConfPath, array($name)) && $ok;
+        }
+        $this->accountConf = null;
+        $this->domainConf = array();
+        return $ok;
+    }
+
+    /**
+     * Remove `<key>=...` lines from an `acme.sh` config file.
+     *
+     * @param string $path Config file.
+     * @param string[] $keys Keys to remove, matched exactly.
+     * @return bool `true` on success, or if the file does not exist.
+     */
+    private function removeConfLines($path, $keys) {
+        if (!is_file($path)) {
+            return true;
+        }
+        $lines = file($path);
+        if ($lines === false) {
+            return false;
+        }
+        $kept = array_filter($lines, function ($line) use ($keys) {
+            foreach ($keys as $key) {
+                if (preg_match('/^' . preg_quote($key, '/') . ' *=/', $line) === 1) {
+                    return false;
+                }
+            }
+            return true;
+        });
+        if (count($kept) == count($lines)) {
+            return true;
+        }
+        $tmp = "$path.tmp";
+        if (file_put_contents($tmp, implode('', $kept)) === false) {
+            @unlink($tmp);
+            return false;
+        }
+        @chmod($tmp, 0600);
+        return rename($tmp, $path);
     }
 
     /**
@@ -232,7 +389,7 @@ class ACME {
             foreach ($this->runQuiet($args) as $string) {
                 $s = explode("=", $string, 2);
                 if (sizeof($s) == 2) {
-                    $this->accountConf[$s[0]] = trim($s[1], "'");
+                    $this->accountConf[$s[0]] = self::decodeConfValue(trim($s[1], "'"));
                 }
             }
         }
@@ -240,18 +397,56 @@ class ACME {
     }
 
     /**
+     * Get the `acme.sh` configuration for a domain.
+     *
+     * @param string $domain Domain.
+     * @return array Key/value pairs from `acme.sh --info --domain`, including
+     *               `DOMAIN_CONF`, the location of the config file. Empty if
+     *               `$domain` is empty.
+     */
+    function getDomainConf($domain) {
+        if (!$domain) {
+            return array();
+        }
+        if (!isset($this->domainConf[$domain])) {
+            $conf = array();
+            $args = array_merge($this->acmeshCommand(), array("--info", "--domain", $domain));
+            foreach ($this->runQuiet($args) as $string) {
+                $s = explode("=", $string, 2);
+                if (sizeof($s) == 2) {
+                    // acme.sh has already decoded the values.
+                    $conf[$s[0]] = $s[1];
+                }
+            }
+            $this->domainConf[$domain] = $conf;
+        }
+        return $this->domainConf[$domain];
+    }
+
+    /**
+     * Decode a base64 encoded `acme.sh` config value.
+     *
+     * @param string $value Value as stored in the config file.
+     * @return string Decoded value.
+     */
+    private static function decodeConfValue($value) {
+        if (str_starts_with($value, self::B64CONF_START) && str_ends_with($value, self::B64CONF_END)) {
+            $encoded = substr($value, strlen(self::B64CONF_START), -strlen(self::B64CONF_END));
+            $decoded = base64_decode($encoded, true);
+            if ($decoded !== false) {
+                return $decoded;
+            }
+        }
+        return $value;
+    }
+
+    /**
      * Get the currently used dns provider.
-     * 
+     *
      * @return DNS provider id or an empty string if no certificate has yet been issued.
      */
     function getDnsApi($domain) {
-        $args = array_merge($this->acmeshCommand(), array("--info", "--domain", $domain));
-        foreach ($this->runQuiet($args) as $string) {
-            if (str_starts_with($string, "Le_Webroot=")) {
-                return substr($string, 11);
-            }
-        }
-        return "";
+        return $this->getDomainConf($domain)['Le_Webroot'] ?? "";
     }
 
     /**
@@ -267,7 +462,7 @@ class ACME {
 
     /**
      * Write messages to the plugin's nchan channel.
-     * 
+     *
      * @param string ...$messages Messages to write.
      */
     function nchanWrite(...$messages){
@@ -284,7 +479,7 @@ class ACME {
         }
         curl_close($com);
     }
-    
+
     /**
      * Build the environment for a child process.
      *
