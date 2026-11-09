@@ -3,11 +3,9 @@ Title="DNS-01 Challenge Configuration"
 Tag="gears"
 ---
 <form id='acme_issue' markdown="1" method="POST" onsubmit="event.preventDefault(); postIssueForm($(this));">
-<input type="hidden" name="ACME_DOMAIN" value="<?=$cert1URL?>">
-<input type="hidden" name="ACME_CERT_FILE" value="<?=$cert1File?>">
 
 _(Certificate URL)_:
-: <b><?=$cert1URL?></b>
+: <?php if ($cert1URL) : ?><b><?=$cert1URL?></b><?php else : ?><b>Invalid server name or local TLD</b><?php endif; ?>
 
 _(Certificate location)_:
 : <b><?=$cert1File?></b> <em>overwritten by plugin</em>
