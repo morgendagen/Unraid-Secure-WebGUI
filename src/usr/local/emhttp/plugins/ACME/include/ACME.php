@@ -16,6 +16,9 @@ class ACME {
     const SYSLOG_LEVEL_ERROR = 3;
     const SYSLOG_LEVEL_DEBUG = 7;
 
+    /** Fallback PATH if the web server runs PHP with an empty environment. */
+    const DEFAULT_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
+
     function __construct() {
         $this->plugin = '/boot/config/plugins/ACME';
         $this->emhttp = '/usr/local/emhttp/plugins/ACME'; 
@@ -29,7 +32,7 @@ class ACME {
      * @param string $dnsProvider Selected dns provider.
      * @param string $domain Domain to issue certificate for.
      * @param string $certFile Location of the resulting nginx certificate bundle file.
-     * @param array $options Options for the dns provider.
+     * @param array $options Options for the dns provider, passed as environment variables.
      * @param bool $forceRenewal Set to `true` to force certificate renewal.
      * @param bool $useStaging Set to `true` to use staging/test acme server.
      * @param bool $verbose Set to `true` to enable verbose output. This
@@ -40,35 +43,32 @@ class ACME {
      * @return integer Result code from `acme.sh`.
      */
     function issueCertificate($dnsProvider, $domain, $certFile, $options, $forceRenewal, $useStaging, $verbose) {
-        $escapedOptions = array();
-        $redactedOptions = array();
-        foreach ($options as $key => $value) {
-            $escaped_value = escapeshellarg($value);
-            array_push($escapedOptions, "$key=$escaped_value");
-            array_push($redactedOptions, "$key=<hidden>");
-        }
-
-        $optionsString = join(" ", $escapedOptions);
-        $reloadcmd = "/usr/share/ACME/scripts/reloadcmd $certFile";
+        // acme.sh evaluates the reload command with a shell.
+        $reloadcmd = "/usr/share/ACME/scripts/reloadcmd " . escapeshellarg($certFile);
         $posthook = "/usr/share/ACME/scripts/post-hook";
 
-        $acmeshArgs = $this->acmeshCommand() . " --issue --dns $dnsProvider --domain $domain --force-color --reloadcmd \"$reloadcmd\" --post-hook \"$posthook\"";
+        $args = array_merge($this->acmeshCommand(), array(
+            "--issue",
+            "--dns", $dnsProvider,
+            "--domain", $domain,
+            "--force-color",
+            "--reloadcmd", $reloadcmd,
+            "--post-hook", $posthook,
+        ));
         if ($forceRenewal) {
-            $acmeshArgs .= " --force";
+            $args[] = "--force";
         }
         if ($useStaging) {
-            $acmeshArgs .= " --staging";
+            $args[] = "--staging";
         }
         if ($verbose) {
             // --debug only affects this run (output shown in the dialog).
             // --syslog is saved in account.conf, so it also applies to `acme.sh --cron`.
-            $acmeshArgs .= " --debug 2 --syslog " . self::SYSLOG_LEVEL_DEBUG;
+            array_push($args, "--debug", "2", "--syslog", strval(self::SYSLOG_LEVEL_DEBUG));
         } else {
-            $acmeshArgs .= " --syslog " . self::SYSLOG_LEVEL_ERROR;
+            array_push($args, "--syslog", strval(self::SYSLOG_LEVEL_ERROR));
         }
-        $cmd = "$optionsString $acmeshArgs";
-        $displayCmd = join(" ", $redactedOptions) . " $acmeshArgs";
-        return $this->run($cmd, $verbose, $displayCmd);
+        return $this->run($args, $verbose, $options);
     }
 
     /**
@@ -107,15 +107,8 @@ class ACME {
      * @param string $email Account email.
      */
     function zeroSSLRegisterAccount($email) {
-        $retval = null;
-        $email = escapeshellarg($email);
-        $cmd = $this->acmeshCommand() . " --register-account -m $email";
-        $retval = $this->run($cmd);
-        if ($retval == 0) {
-            return true;
-        } else {
-            return false;
-        }
+        $args = array_merge($this->acmeshCommand(), array("--register-account", "-m", $email));
+        return $this->run($args) == 0;
     }
 
     /**
@@ -124,15 +117,8 @@ class ACME {
      * @param string $email New account email.
      */
     function zeroSSLUpdateAccount($email) {
-        $retval = null;
-        $email = escapeshellarg($email);
-        $cmd = $this->acmeshCommand() . " --update-account -m $email";
-        $retval = $this->run($cmd);
-        if ($retval == 0) {
-            return true;
-        } else {
-            return false;
-        }
+        $args = array_merge($this->acmeshCommand(), array("--update-account", "-m", $email));
+        return $this->run($args) == 0;
     }
 
     /**
@@ -157,10 +143,9 @@ class ACME {
      */
     function getAccountConf() {
         if ($this->accountConf === null) {
-            $cmd = escapeshellcmd($this->acmeshCommand() . " --info");
-            exec($cmd, $output);
             $this->accountConf = array();
-            foreach ($output as $string) {
+            $args = array_merge($this->acmeshCommand(), array("--info"));
+            foreach ($this->runQuiet($args) as $string) {
                 $s = explode("=", $string, 2);
                 if (sizeof($s) == 2) {
                     $this->accountConf[$s[0]] = trim($s[1], "'");
@@ -176,10 +161,8 @@ class ACME {
      * @return DNS provider id or an empty string if no certificate has yet been issued.
      */
     function getDnsApi($domain) {
-        $domain = escapeshellarg($domain);
-        $cmd = escapeshellcmd($this->acmeshCommand() . " --info --domain " . $domain);
-        exec($cmd, $output);
-        foreach($output as $index => $string) {
+        $args = array_merge($this->acmeshCommand(), array("--info", "--domain", $domain));
+        foreach ($this->runQuiet($args) as $string) {
             if (str_starts_with($string, "Le_Webroot=")) {
                 return substr($string, 11);
             }
@@ -188,10 +171,14 @@ class ACME {
     }
 
     /**
-     * Returns command string for invoking the `acme.sh`.
+     * Returns the command for invoking `acme.sh`, as an argument list.
      */
     function acmeshCommand() {
-        return $this->acmeshHome . "/acme.sh --config-home " . $this->acmeshConfigHome . " --home " . $this->acmeshHome;
+        return array(
+            $this->acmeshHome . "/acme.sh",
+            "--config-home", $this->acmeshConfigHome,
+            "--home", $this->acmeshHome,
+        );
     }
 
     /**
@@ -215,25 +202,68 @@ class ACME {
     }
     
     /**
-     * Execute a command and send output to the plugin's nchan channel.
-     * 
-     * @param string $command Command to execute.
-     * @param bool $verbose Set to `true` to show the executed command.
-     * @param string|null $displayCommand Command to show instead of `$command`,
-     *                                    e.g. with secrets redacted.
+     * Build the environment for a child process.
+     *
+     * @param array $env Additional environment variables.
+     * @return array Environment.
      */
-    function run($command, $verbose = false, $displayCommand = null) {
+    private static function childEnvironment($env) {
+        $environment = array_merge(getenv(), $env);
+        if (empty($environment['PATH'])) {
+            $environment['PATH'] = self::DEFAULT_PATH;
+        }
+        return $environment;
+    }
+
+    /**
+     * Execute a command without a shell and return its standard output.
+     *
+     * @param string[] $args Command and arguments.
+     * @return string[] Output lines.
+     */
+    private function runQuiet($args) {
+        $process = proc_open($args, array(1 => array('pipe', 'w'), 2 => array('file', '/dev/null', 'w')), $pipes, null, self::childEnvironment(array()));
+        if (!is_resource($process)) {
+            return array();
+        }
+        $output = stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        proc_close($process);
+        return explode("\n", rtrim($output, "\n"));
+    }
+
+    /**
+     * Execute a command without a shell and send output to the plugin's
+     * nchan channel.
+     *
+     * @param string[] $args Command and arguments.
+     * @param bool $verbose Set to `true` to show the executed command. Values
+     *                      in `$env` are never shown.
+     * @param array $env Additional environment variables, e.g. secrets.
+     * @return integer Exit code.
+     */
+    function run($args, $verbose = false, $env = array()) {
         $this->nchanWrite("\n");
-        $command = escapeshellcmd($command) . " 2>&1";
         if ($verbose) {
-            $shown = $displayCommand ?? $command;
-            $this->nchanWrite("--- Executing command: $shown", "\n");
+            $shown = array();
+            foreach (array_keys($env) as $name) {
+                $shown[] = "$name=<hidden>";
+            }
+            foreach ($args as $arg) {
+                $shown[] = escapeshellarg($arg);
+            }
+            $this->nchanWrite("--- Executing command: " . join(" ", $shown), "\n");
         } else {
             $this->nchanWrite("--- Executing command", "\n");
         }
-        $run = popen($command,'r');
-        while (($line = fgets($run)) !== false) $this->nchanWrite($line);
-        $retval = pclose($run);
+        $process = proc_open($args, array(1 => array('pipe', 'w'), 2 => array('redirect', 1)), $pipes, null, self::childEnvironment($env));
+        if (!is_resource($process)) {
+            $this->nchanWrite("--- Failed to start command", "\n");
+            return -1;
+        }
+        while (($line = fgets($pipes[1])) !== false) $this->nchanWrite($line);
+        fclose($pipes[1]);
+        $retval = proc_close($process);
         if ($retval == 0) {
             $this->nchanWrite("--- Successfully finished execution", "\n");
         } else {
