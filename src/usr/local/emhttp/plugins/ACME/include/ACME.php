@@ -85,6 +85,56 @@ class ACME {
     }
 
     /**
+     * Get the option names a DNS provider declares in `dnsapi_info.txt`,
+     * both `Options` and `OptionsAlt`. Parsed the same way as `dnsapi.js`,
+     * so these are the inputs the page shows for the provider.
+     *
+     * @param string $dnsProvider DNS provider id, see `isValidDnsProvider()`.
+     * @return string[]|null Option names, or `null` if the info file could
+     *                       not be read.
+     */
+    function getDnsProviderOptionNames($dnsProvider) {
+        $lines = @file($this->emhttp . "/dnsapi_info.txt", FILE_IGNORE_NEW_LINES);
+        if ($lines === false) {
+            return null;
+        }
+        $names = array();
+        // Providers are separated by empty lines, and start with their id.
+        $inProvider = false;
+        $inOptions = false;
+        $blockStart = true;
+        foreach ($lines as $line) {
+            if ($line === '') {
+                $blockStart = true;
+                $inProvider = false;
+                $inOptions = false;
+                continue;
+            }
+            if ($blockStart) {
+                $blockStart = false;
+                $inProvider = $line === $dnsProvider;
+                continue;
+            }
+            if (!$inProvider) {
+                continue;
+            }
+            if (str_starts_with($line, 'Options:') || str_starts_with($line, 'OptionsAlt:')) {
+                $inOptions = true;
+            } elseif (!str_starts_with($line, ' ')) {
+                $inOptions = false;
+            } elseif ($inOptions) {
+                // " <name> <title>[. <description>]"
+                $option = trim($line);
+                $pos = strpos($option, ' ');
+                if ($pos > 0) {
+                    $names[] = substr($option, 0, $pos);
+                }
+            }
+        }
+        return $names;
+    }
+
+    /**
      * Get the Unraid server settings.
      *
      * @return array Contents of `var.ini`.
@@ -199,12 +249,16 @@ class ACME {
      *
      * @param string $domain Domain the certificate is issued for.
      * @param array $submitted Submitted option names and values.
+     * @param string[] $allowedNames Option names the DNS provider declares,
+     *                               see `getDnsProviderOptionNames()`. Any
+     *                               other name is rejected, so the form
+     *                               can't set e.g. `PATH` or `LD_PRELOAD`.
      * @return array `['options' => [name => value], 'clear' => [name], 'changed' => bool]`,
      *               where `changed` is `true` if any option differs from
      *               its saved value.
      * @throws InvalidArgumentException If an option name or value is invalid.
      */
-    function prepareOptions($domain, $submitted) {
+    function prepareOptions($domain, $submitted, $allowedNames) {
         $saved = $this->getSavedOptions($domain);
         $options = array();
         $clear = array();
@@ -212,6 +266,9 @@ class ACME {
         foreach ($submitted as $name => $value) {
             if (!self::isValidOptionName($name)) {
                 throw new InvalidArgumentException("Invalid option name");
+            }
+            if (!in_array($name, $allowedNames, true)) {
+                throw new InvalidArgumentException("Unknown option $name for the selected DNS provider");
             }
             if (!is_string($value)) {
                 throw new InvalidArgumentException("Invalid value for $name");
