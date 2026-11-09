@@ -30,38 +30,42 @@ $useStaging = !empty($_POST["ACME_USE_STAGING"]);
 function acme_options_filter($key) {
     return !str_starts_with($key, 'ACME_');
 }
-$options = array_filter($_POST, "acme_options_filter", ARRAY_FILTER_USE_KEY);
-
-/**
- * Check that all option names are valid environment variable names, and
- * all values are strings.
- */
-function acme_options_valid($options) {
-    foreach ($options as $name => $value) {
-        if (!ACME::isValidOptionName($name) || !is_string($value)) {
-            return false;
-        }
-    }
-    return true;
-}
+$submitted = array_filter($_POST, "acme_options_filter", ARRAY_FILTER_USE_KEY);
 
 if (!$acme->isValidDnsProvider($dnsProvider)) {
     acme_fail("Invalid DNS provider");
 } elseif ($domain === null || $certFile === null) {
     acme_fail("Invalid server name or local TLD");
-} elseif (!acme_options_valid($options)) {
-    acme_fail("Invalid DNS provider option");
 } else {
-    $retval = $acme->issueCertificate(
-        dnsProvider: $dnsProvider,
-        domain: $domain,
-        certFile: $certFile,
-        options: $options,
-        forceRenewal: $forceRenewal,
-        useStaging: $useStaging,
-        verbose: $verbose
-    );
-    $response['status'] = $retval == 0 ? 'OK' : 'Failed';
+    try {
+        $prepared = $acme->prepareOptions($domain, $submitted);
+    } catch (InvalidArgumentException $e) {
+        $prepared = null;
+        acme_fail($e->getMessage());
+    }
+    if ($prepared !== null) {
+        $cleared = true;
+        foreach ($prepared['clear'] as $name) {
+            if ($acme->clearSavedOption($name, $domain)) {
+                $acme->nchanWrite("--- Cleared saved value of $name", "\n");
+            } else {
+                $cleared = false;
+                acme_fail("Failed to clear saved value of $name");
+            }
+        }
+        if ($cleared) {
+            $retval = $acme->issueCertificate(
+                dnsProvider: $dnsProvider,
+                domain: $domain,
+                certFile: $certFile,
+                options: $prepared['options'],
+                forceRenewal: $forceRenewal,
+                useStaging: $useStaging,
+                verbose: $verbose
+            );
+            $response['status'] = $retval == 0 ? 'OK' : 'Failed';
+        }
+    }
 }
 
 // to keep nchan happy and not miss messages
