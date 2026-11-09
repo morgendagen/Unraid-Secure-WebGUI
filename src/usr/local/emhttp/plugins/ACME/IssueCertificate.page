@@ -5,10 +5,10 @@ Tag="gears"
 <form id='acme_issue' markdown="1" method="POST" onsubmit="event.preventDefault(); postIssueForm($(this));">
 
 _(Certificate URL)_:
-: <?php if ($cert1URL) : ?><b><?=$cert1URL?></b><?php else : ?><b>Invalid server name or local TLD</b><?php endif; ?>
+: <?php if ($cert1URL) : ?><b><?=htmlspecialchars($cert1URL)?></b><?php else : ?><b>Invalid server name or local TLD</b><?php endif; ?>
 
 _(Certificate location)_:
-: <b><?=$cert1File?></b> <em>overwritten by plugin</em>
+: <b><?=htmlspecialchars($cert1File)?></b> <em>overwritten by plugin</em>
 
 _(DNS Provider)_:
 : <select id="ACME_DNSAPI" name="ACME_DNSAPI" onchange="acme.dnsProviderChanged(this)">

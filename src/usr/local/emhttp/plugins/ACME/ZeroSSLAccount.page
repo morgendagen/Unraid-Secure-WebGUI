@@ -13,7 +13,7 @@ $email = $acme->getZeroSSLAccountEmail();
 <form id='acme_zerossl_account' markdown="1" method="POST" onsubmit="event.preventDefault(); postZeroSSLAccountForm($(this));">
 
 _(Email Address)_:
-: <input type="email" name="email" value="<?=$email?>">
+: <input type="email" name="email" value="<?=htmlspecialchars($email)?>">
 <?php if($email == "") : ?>
 
 &nbsp;
