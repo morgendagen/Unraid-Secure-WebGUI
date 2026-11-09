@@ -3,7 +3,7 @@
 <!DOCTYPE PLUGIN [
     <!ENTITY name        "ACME">
     <!ENTITY author      "morgendagen">
-    <!ENTITY version     "2026.11.07">
+    <!ENTITY version     "2026.11.08">
     <!ENTITY md5         "0d99aa8633e868033a62846726473a64">
     <!ENTITY githubURL   "https://raw.githubusercontent.com/morgendagen/Unraid-Secure-WebGUI">
     <!ENTITY pluginURL   "&githubURL;/main/ACME.plg">
@@ -21,6 +21,14 @@
 >
 
 <CHANGES>
+###2026.11.08
+- Saved DNS provider secrets (passwords, tokens, keys) are no longer sent to the browser. They are shown as ***PASSWORD***; leave unchanged to keep, change to replace, or clear the field to remove the saved value.
+- Clearing a DNS provider option now removes its saved value, so it is no longer used for renewals.
+- Options saved per domain by some DNS providers (e.g. Cloudflare with a Zone ID) are now shown.
+- DNS provider credentials containing special characters such as $ or # are no longer altered.
+- DNS provider credentials are no longer visible in the process list while issuing.
+- Validate input used to run acme.sh, and escape values shown in the web UI.
+
 ###2026.11.07
 - Added "Verbose logging" option for troubleshooting. Shows acme.sh debug output when issuing a certificate, and logs automatic renewals to the System Log.
 - Errors from automatic renewals are now logged to the System Log.
