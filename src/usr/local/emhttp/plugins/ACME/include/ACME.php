@@ -27,9 +27,93 @@ class ACME {
     }
 
     /**
+     * Check whether a string is usable as an environment variable name.
+     *
+     * Names starting with `Le_` are rejected, as `acme.sh` uses those for
+     * its own per-domain settings.
+     *
+     * @param mixed $name
+     * @return bool
+     */
+    static function isValidOptionName($name) {
+        return is_string($name)
+            && preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $name) === 1
+            && !str_starts_with($name, 'Le_');
+    }
+
+    /**
+     * Check whether `$dnsProvider` is the id of an installed dnsapi script.
+     *
+     * @param mixed $dnsProvider DNS provider id, e.g. `dns_cf`.
+     * @return bool
+     */
+    function isValidDnsProvider($dnsProvider) {
+        return is_string($dnsProvider)
+            && preg_match('/^dns_[a-z0-9_]+$/', $dnsProvider) === 1
+            && is_file($this->acmeshHome . "/dnsapi/$dnsProvider.sh");
+    }
+
+    /**
+     * Get the Unraid server settings.
+     *
+     * @return array Contents of `var.ini`.
+     */
+    protected function getServerVars() {
+        $vars = @parse_ini_file('/var/local/emhttp/var.ini');
+        return is_array($vars) ? $vars : array();
+    }
+
+    /**
+     * Get the server name, validated as a DNS label.
+     *
+     * @return string|null Server name, or `null` if invalid.
+     */
+    private function getServerName() {
+        $vars = $this->getServerVars();
+        $name = ($vars['NAME'] ?? '') ?: 'tower';
+        if (preg_match('/^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/', $name) !== 1) {
+            return null;
+        }
+        return $name;
+    }
+
+    /**
+     * Get the domain to issue the certificate for: the server name plus the
+     * local TLD configured in Management Access.
+     *
+     * @return string|null Domain, or `null` if the server name or local TLD is invalid.
+     */
+    function getCertificateDomain() {
+        $name = $this->getServerName();
+        if ($name === null) {
+            return null;
+        }
+        $tld = $this->getServerVars()['LOCAL_TLD'] ?? '';
+        $domain = $tld ? "$name.$tld" : $name;
+        $label = '[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?';
+        if (strlen($domain) > 253 || preg_match("/^$label(\\.$label)*$/", $domain) !== 1) {
+            return null;
+        }
+        return $domain;
+    }
+
+    /**
+     * Get the location of the nginx certificate bundle written by the plugin.
+     *
+     * @return string|null File path, or `null` if the server name is invalid.
+     */
+    function getCertificateFile() {
+        $name = $this->getServerName();
+        if ($name === null) {
+            return null;
+        }
+        return "/boot/config/ssl/certs/{$name}_unraid_bundle.pem";
+    }
+
+    /**
      * Issue a certificate.
      * 
-     * @param string $dnsProvider Selected dns provider.
+     * @param string $dnsProvider Selected dns provider, see `isValidDnsProvider()`.
      * @param string $domain Domain to issue certificate for.
      * @param string $certFile Location of the resulting nginx certificate bundle file.
      * @param array $options Options for the dns provider, passed as environment variables.

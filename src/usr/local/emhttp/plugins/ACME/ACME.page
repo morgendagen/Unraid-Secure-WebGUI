@@ -8,8 +8,8 @@ Tag="lock"
 require("/usr/local/emhttp/plugins/ACME/include/ACME.php");
 
 $acme = new ACME();
-$cert1URL = _var($var,'NAME','tower').(_var($var,'LOCAL_TLD') ? '.'._var($var,'LOCAL_TLD') : '');
-$cert1File = "/boot/config/ssl/certs/"._var($var,'NAME','tower')."_unraid_bundle.pem";
+$cert1URL = $acme->getCertificateDomain() ?? '';
+$cert1File = $acme->getCertificateFile() ?? '';
 
 $savedEnvironment = $acme->getSavedEnvironment();
 $currentDnsApi = $acme->getDnsApi($cert1URL);
