@@ -74,6 +74,12 @@ if (!$acme->isValidDnsProvider($dnsProvider)) {
             } else {
                 $response['status'] = 'Failed';
             }
+            if ($useStaging && ($retval == 0 || $retval == ACME::RENEW_SKIP)) {
+                $acme->nchanWrite("\n",
+                    "--- The staging certificate is for testing only, and has not been installed.", "\n",
+                    "--- Automatic renewals now only renew the staging certificate, so the installed certificate is no longer renewed.", "\n",
+                    "--- Issue a certificate without \"Use staging server\" to install a certificate and keep it renewed.", "\n");
+            }
         }
     }
 }

@@ -15,6 +15,7 @@ $cert1File = $acme->getCertificateFile() ?? '';
 $savedEnvironment = $acme->getSavedEnvironment($cert1URL);
 $currentDnsApi = $acme->getDnsApi($cert1URL);
 $verboseLogging = $acme->isVerboseLoggingEnabled();
+$stagingCertificate = $acme->isStagingCertificate($cert1URL);
 ?>
 
 <script type="module">

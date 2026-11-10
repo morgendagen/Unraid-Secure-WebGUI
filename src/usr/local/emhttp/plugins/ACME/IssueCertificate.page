@@ -9,6 +9,11 @@ _(Certificate URL)_:
 
 _(Certificate location)_:
 : <b><?=htmlspecialchars($cert1File)?></b> <em>overwritten by plugin</em>
+<?php if ($stagingCertificate) : ?>
+
+&nbsp;
+: <span class="orange-text"><i class="fa fa-exclamation-triangle"></i> The current certificate was issued by the staging server, for testing. It has not been installed, and automatic renewals only renew the staging certificate, so the installed certificate is no longer renewed. Issue a certificate without "Use staging server" to fix this.</span>
+<?php endif; ?>
 
 _(DNS Provider)_:
 : <select id="ACME_DNSAPI" name="ACME_DNSAPI" onchange="acme.dnsProviderChanged(this)">
@@ -44,7 +49,8 @@ _(DNS Provider)_:
 : <input type="checkbox" id="ACME_FORCE_RENEWAL" name="ACME_FORCE_RENEWAL" value="force"><label for="ACME_FORCE_RENEWAL">Force certificate renewal</span></label>
 
 &nbsp;
-: <input type="checkbox" id="ACME_USE_STAGING" name="ACME_USE_STAGING" value="staging"><label for="ACME_USE_STAGING">Use staging server, for testing</span></label>
+: <input type="checkbox" id="ACME_USE_STAGING" name="ACME_USE_STAGING" value="staging"><label for="ACME_USE_STAGING">Use staging server, for testing</label>
+  <span><i class="fa fa-info icon info"></i> The staging certificate is not trusted by browsers, so it is not installed. Afterwards, issue a certificate without this checked to install a certificate and keep it renewed.</span>
 
 &nbsp;
 : <input type="checkbox" id="ACME_VERBOSE" name="ACME_VERBOSE" value="verbose"<?=$verboseLogging ? ' checked' : ''?>><label for="ACME_VERBOSE">Verbose logging, for troubleshooting</label>
