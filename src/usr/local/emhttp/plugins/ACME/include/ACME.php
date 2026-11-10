@@ -27,6 +27,9 @@ class ACME {
      */
     const RENEW_SKIP = 2;
 
+    /** The staging server used by `acme.sh --staging`, see `DEFAULT_STAGING_CA` in `acme.sh`. */
+    const STAGING_CA = 'https://acme-staging-v02.api.letsencrypt.org/directory';
+
     /**
      * Value sent to the browser in place of a saved secret. Submitting it
      * unchanged means "keep the saved value".
@@ -196,7 +199,11 @@ class ACME {
      * @param string $certFile Location of the resulting nginx certificate bundle file.
      * @param array $options Options for the dns provider, passed as environment variables.
      * @param bool $forceRenewal Set to `true` to force certificate renewal.
+     *                           Renewal is also forced when switching between
+     *                           the staging and production servers.
      * @param bool $useStaging Set to `true` to use staging/test acme server.
+     *                         The staging certificate is not installed, see
+     *                         `isStagingCertificate()`.
      * @param bool $verbose Set to `true` to enable verbose output. This
      *                     shows debug output for this run and enables debug
      *                     logging to syslog, which is persisted by `acme.sh`
@@ -215,14 +222,28 @@ class ACME {
             "--dns", $dnsProvider,
             "--domain", $domain,
             "--force-color",
-            "--reloadcmd", $reloadcmd,
             "--post-hook", $posthook,
         ));
-        if ($forceRenewal) {
+        // acme.sh does not renew a certificate that isn't due, even if it
+        // was issued by the other server.
+        $switchingServer = $this->hasCertificate($domain) && $this->isStagingCertificate($domain) !== $useStaging;
+        if ($forceRenewal || $switchingServer) {
             $args[] = "--force";
         }
         if ($useStaging) {
+            // Staging certificates are for testing and not trusted by
+            // browsers, so don't install them. acme.sh keeps a previously
+            // saved reload command, also for renewals, so clear it.
+            if (!$this->removeDomainConfValue($domain, "Le_ReloadCmd")) {
+                $this->nchanWrite("\n", "--- Failed to clear the saved reload command", "\n");
+                return -1;
+            }
             $args[] = "--staging";
+        } else {
+            array_push($args, "--reloadcmd", $reloadcmd);
+        }
+        if ($switchingServer && !$forceRenewal) {
+            $this->nchanWrite("\n", "--- Switching to the " . ($useStaging ? "staging" : "production") . " server, forcing certificate renewal", "\n");
         }
         if ($verbose) {
             // --debug only affects this run (output shown in the dialog).
@@ -232,6 +253,29 @@ class ACME {
             array_push($args, "--syslog", strval(self::SYSLOG_LEVEL_ERROR));
         }
         return $this->run($args, $verbose, $options, self::RENEW_SKIP);
+    }
+
+    /**
+     * Check whether a certificate has been issued for the domain.
+     *
+     * @param string $domain Domain.
+     * @return bool
+     */
+    function hasCertificate($domain) {
+        return ($this->getDomainConf($domain)['Le_API'] ?? '') !== '';
+    }
+
+    /**
+     * Check whether the domain's current `acme.sh` certificate was issued
+     * by the staging server. Such a certificate is not installed, and
+     * automatic renewals keep using the staging server, so the installed
+     * certificate is no longer renewed.
+     *
+     * @param string $domain Domain.
+     * @return bool
+     */
+    function isStagingCertificate($domain) {
+        return ($this->getDomainConf($domain)['Le_API'] ?? '') === self::STAGING_CA;
     }
 
     /**
@@ -400,11 +444,24 @@ class ACME {
         // Same as acme.sh's _clearaccountconf_mutable: both the current
         // SAVED_<name> and the legacy <name> form.
         $ok = $this->removeConfLines($this->acmeshConfigHome . "/account.conf", array("SAVED_$name", $name));
+        $ok = $this->removeDomainConfValue($domain, $name) && $ok;
+        $this->accountConf = null;
+        return $ok;
+    }
+
+    /**
+     * Remove a value from the domain's `acme.sh` config.
+     *
+     * @param string $domain Domain.
+     * @param string $key Key, e.g. `Le_ReloadCmd`.
+     * @return bool `true` on success, or if there is no such value.
+     */
+    private function removeDomainConfValue($domain, $key) {
+        $ok = true;
         $domainConfPath = $this->getDomainConf($domain)['DOMAIN_CONF'] ?? null;
         if ($domainConfPath) {
-            $ok = $this->removeConfLines($domainConfPath, array($name)) && $ok;
+            $ok = $this->removeConfLines($domainConfPath, array($key));
         }
-        $this->accountConf = null;
         $this->domainConf = array();
         return $ok;
     }
