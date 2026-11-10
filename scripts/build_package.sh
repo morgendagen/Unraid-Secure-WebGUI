@@ -2,6 +2,9 @@
 
 PLUGIN_NAME="ACME"
 ACME_VERSION="3.1.3"
+# SHA256 of the acme.sh ${ACME_VERSION} release tarball. Update together
+# with ACME_VERSION.
+ACME_SHA256="efd12b265252f8875269960b6b31830731ccce2b3e6ff8e7ecfbee21fde35ab4"
 
 if [[ ! -v VERSION ]]; then
     echo "VERSION is not set"
@@ -9,10 +12,12 @@ if [[ ! -v VERSION ]]; then
 fi
 
 ARCHIVE_PATH="${PWD}/archive"
-TMP_PATH=/tmp/tmp.$(( $RANDOM * 19318203981230 + 40 ))
+TMP_PATH=$(mktemp -d) || exit 1
+trap 'rm -rf "$TMP_PATH"' EXIT
+# The package root: makepkg records its permissions, and mktemp creates it 0700.
+chmod 755 "$TMP_PATH"
 PLUGIN_PATH=${TMP_PATH}/usr/local/emhttp/plugins/${PLUGIN_NAME}
 
-mkdir -p $TMP_PATH
 mkdir -p $ARCHIVE_PATH
 
 # Copy sources
@@ -21,9 +26,18 @@ cp -r src/* $TMP_PATH/
 
 # Extract and move acmesh into place
 
-cd $TMP_PATH
+cd "$TMP_PATH" || exit 1
 mkdir -p ${TMP_PATH}/usr/share/ACME
-wget --no-check-certificate -O acmesh-${ACME_VERSION}.tar.gz https://github.com/acmesh-official/acme.sh/archive/refs/tags/${ACME_VERSION}.tar.gz
+# The build image has no CA certificates, so wget can't verify TLS. The
+# pinned checksum ensures this is the expected acme.sh release.
+if ! wget --no-check-certificate -O acmesh-${ACME_VERSION}.tar.gz https://github.com/acmesh-official/acme.sh/archive/refs/tags/${ACME_VERSION}.tar.gz; then
+    echo "Failed to download acme.sh ${ACME_VERSION}"
+    exit 1
+fi
+if ! echo "${ACME_SHA256}  acmesh-${ACME_VERSION}.tar.gz" | sha256sum -c -; then
+    echo "acme.sh ${ACME_VERSION} download does not match ACME_SHA256"
+    exit 1
+fi
 tar xf acmesh-${ACME_VERSION}.tar.gz
 mv acme.sh-${ACME_VERSION} ${TMP_PATH}/usr/share/ACME/acme.sh
 rm acmesh-${ACME_VERSION}.tar.gz
@@ -60,7 +74,3 @@ makepkg -l y -c y ${ARCHIVE_PATH}/${PLUGIN_NAME}-${VERSION}-noarch-1.txz
 #MD5=`md5 -q ${ARCHIVE_PATH}/${PLUGIN_NAME}-${VERSION}.txz`
 #echo -n $MD5 > ${ARCHIVE_PATH}/${PLUGIN_NAME}-${VERSION}.md5
 #echo "MD5: $MD5"
-
-# Cleanup
-
-rm -rf $TMP_PATH
