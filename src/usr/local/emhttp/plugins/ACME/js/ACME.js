@@ -279,9 +279,11 @@ export class ACME {
      * outcome and enable the "Done" button.
      *
      * @param {boolean} success `true` if the operation succeeded.
+     * @param {string} outcome Optional outcome shown in the title instead
+     *                         of "Completed" or "Failed", e.g. "Skipped".
      */
-    finishSwal(success) {
-        $('.sweet-alert h2').text(this._swalTitle + (success ? " - Completed" : " - Failed"));
+    finishSwal(success, outcome=null) {
+        $('.sweet-alert h2').text(this._swalTitle + " - " + (outcome ?? (success ? "Completed" : "Failed")));
         this.enableSwalButtons();
     }
 }

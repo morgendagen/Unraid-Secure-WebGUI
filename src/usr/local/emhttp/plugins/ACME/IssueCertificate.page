@@ -57,6 +57,7 @@ _(DNS Provider)_:
 <script>
   function postIssueForm($form) {
     var success = false;
+    var outcome = null;
     acme.createSwal("Issuing Certificate", "<?=_('Done')?>");
 
     var serializedData = $form.serialize();
@@ -71,8 +72,15 @@ _(DNS Provider)_:
     request.done(function (response, textStatus, jqXHR) {
       try {
         var jsonResponse = JSON.parse(response);
-        success = jsonResponse.status == 'OK';
-        $('#acme_issue_status').text(success ? "" : jsonResponse.status);
+        if (jsonResponse.status == 'Skipped') {
+          // Certificate is still valid, nothing to renew.
+          success = true;
+          outcome = "Skipped";
+          $('#acme_issue_status').text("Certificate is still valid, not renewed");
+        } else {
+          success = jsonResponse.status == 'OK';
+          $('#acme_issue_status').text(success ? "" : jsonResponse.status);
+        }
       } catch {
         $('#acme_issue_status').text(textStatus);
       }
@@ -89,7 +97,7 @@ _(DNS Provider)_:
 
     request.always(function() {
       $('#acme_issue :input').prop("disabled", false);
-      acme.finishSwal(success);
+      acme.finishSwal(success, outcome);
     });
   }
 </script>
