@@ -3,7 +3,7 @@
 <!DOCTYPE PLUGIN [
     <!ENTITY name        "ACME">
     <!ENTITY author      "morgendagen">
-    <!ENTITY version     "2026.11.08">
+    <!ENTITY version     "2026.11.10">
     <!ENTITY md5         "fd0429c29002b85d476c12eea20ef22c">
     <!ENTITY githubURL   "https://raw.githubusercontent.com/morgendagen/Unraid-Secure-WebGUI">
     <!ENTITY pluginURL   "&githubURL;/main/ACME.plg">
@@ -21,6 +21,15 @@
 >
 
 <CHANGES>
+###2026.11.10
+- The "Certificate renewed" notification is now shown when issuing a certificate from the WebGUI.
+- Failing to install a certificate or reload the WebGUI now posts an alert notification, also for automatic renewals. The certificate file is replaced only once it has been written completely.
+- Certificates from the staging server are no longer installed, as browsers don't trust them. The page shows a notice while the current certificate is from the staging server, until a certificate is issued without staging.
+- Switching between the staging and production servers now always issues a new certificate.
+- Issuing while the certificate is still valid is now reported as skipped instead of failed. Changed DNS provider settings are only checked and saved when a certificate is issued; use "Force certificate renewal" to issue one now.
+- Only the options of the selected DNS provider are accepted, and web request data is no longer passed on to acme.sh.
+- The ZeroSSL registration email address is validated.
+
 ###2026.11.08
 - Saved DNS provider secrets (passwords, tokens, keys) are no longer sent to the browser. They are shown as ***PASSWORD***; leave unchanged to keep, change to replace, or clear the field to remove the saved value.
 - Clearing a DNS provider option now removes its saved value, so it is no longer used for renewals.
