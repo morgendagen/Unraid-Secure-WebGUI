@@ -5,15 +5,15 @@ $acme = new ACME();
 
 $response_code = 200;
 $response = array();
-$function = $_POST["function"];
-$email = $_POST['email'];
+$function = $_POST["function"] ?? null;
+$email = $_POST['email'] ?? null;
 
-if (!isset($function)) {
+if (!in_array($function, array("register", "update"), true)) {
     $response_code = 400;
-    $response['status'] = 'Missing function';
-} elseif (!isset($email)) {
+    $response['status'] = 'Invalid function';
+} elseif (!is_string($email) || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
     $response_code = 400;
-    $response['status'] = 'Missing email address';
+    $response['status'] = 'Invalid email address';
 } else {
     // to keep nchan happy and not miss messages
     usleep(250*1000);

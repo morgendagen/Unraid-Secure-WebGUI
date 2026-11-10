@@ -234,7 +234,7 @@ class ACME {
             // Staging certificates are for testing and not trusted by
             // browsers, so don't install them. acme.sh keeps a previously
             // saved reload command, also for renewals, so clear it.
-            if (!$this->removeDomainConfValue($domain, "Le_ReloadCmd")) {
+            if (!$this->removeDomainConfValues($domain, array("Le_ReloadCmd"))) {
                 $this->nchanWrite("\n", "--- Failed to clear the saved reload command", "\n");
                 return -1;
             }
@@ -349,17 +349,13 @@ class ACME {
      */
     function getZeroSSLAccountEmail() {
         $account_path = $this->acmeshConfigHome . "/ca/acme.zerossl.com/v2/DV90/account.json";
-        $json_string = file_get_contents($account_path);
-        if ($json_string == false) {
+        // Doesn't exist until an account has been registered.
+        $json_string = @file_get_contents($account_path);
+        if ($json_string === false) {
             return "";
-        } else {
-            $json = json_decode($json_string, true);
-            if ($json) {
-                $contact = $json["contact"][0];
-                return str_replace("mailto:", "", $contact);
-            }
         }
-        return "";
+        $contact = json_decode($json_string, true)["contact"][0] ?? null;
+        return is_string($contact) ? str_replace("mailto:", "", $contact) : "";
     }
 
     /**
@@ -430,37 +426,44 @@ class ACME {
     }
 
     /**
-     * Remove a saved dns provider option from `account.conf` and the
-     * domain's config, so `acme.sh` no longer uses it.
+     * Remove saved dns provider options from `account.conf` and the
+     * domain's config, so `acme.sh` no longer uses them.
      *
-     * @param string $name Option name.
+     * Each file is rewritten once, for all options, so a failure doesn't
+     * leave some of the options in a file cleared.
+     *
+     * @param string[] $names Option names.
      * @param string $domain Domain the certificate is issued for.
      * @return bool `true` on success.
      */
-    function clearSavedOption($name, $domain) {
-        if (!self::isValidOptionName($name)) {
-            return false;
+    function clearSavedOptions($names, $domain) {
+        $accountKeys = array();
+        foreach ($names as $name) {
+            if (!self::isValidOptionName($name)) {
+                return false;
+            }
+            // Same as acme.sh's _clearaccountconf_mutable: both the current
+            // SAVED_<name> and the legacy <name> form.
+            array_push($accountKeys, "SAVED_$name", $name);
         }
-        // Same as acme.sh's _clearaccountconf_mutable: both the current
-        // SAVED_<name> and the legacy <name> form.
-        $ok = $this->removeConfLines($this->acmeshConfigHome . "/account.conf", array("SAVED_$name", $name));
-        $ok = $this->removeDomainConfValue($domain, $name) && $ok;
+        $ok = $this->removeConfLines($this->acmeshConfigHome . "/account.conf", $accountKeys);
+        $ok = $ok && $this->removeDomainConfValues($domain, $names);
         $this->accountConf = null;
         return $ok;
     }
 
     /**
-     * Remove a value from the domain's `acme.sh` config.
+     * Remove values from the domain's `acme.sh` config.
      *
      * @param string $domain Domain.
-     * @param string $key Key, e.g. `Le_ReloadCmd`.
-     * @return bool `true` on success, or if there is no such value.
+     * @param string[] $keys Keys, e.g. `Le_ReloadCmd`.
+     * @return bool `true` on success, or if there are no such values.
      */
-    private function removeDomainConfValue($domain, $key) {
+    private function removeDomainConfValues($domain, $keys) {
         $ok = true;
         $domainConfPath = $this->getDomainConf($domain)['DOMAIN_CONF'] ?? null;
         if ($domainConfPath) {
-            $ok = $this->removeConfLines($domainConfPath, array($key));
+            $ok = $this->removeConfLines($domainConfPath, $keys);
         }
         $this->domainConf = array();
         return $ok;

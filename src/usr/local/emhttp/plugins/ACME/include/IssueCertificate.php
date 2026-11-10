@@ -44,14 +44,12 @@ if (!$acme->isValidDnsProvider($dnsProvider)) {
         acme_fail($e->getMessage());
     }
     if ($prepared !== null) {
-        $cleared = true;
-        foreach ($prepared['clear'] as $name) {
-            if ($acme->clearSavedOption($name, $domain)) {
-                $acme->nchanWrite("--- Cleared saved value of $name", "\n");
-            } else {
-                $cleared = false;
-                acme_fail("Failed to clear saved value of $name");
-            }
+        $clear = $prepared['clear'];
+        $cleared = !$clear || $acme->clearSavedOptions($clear, $domain);
+        if (!$cleared) {
+            acme_fail("Failed to clear saved values of " . implode(", ", $clear));
+        } elseif ($clear) {
+            $acme->nchanWrite("--- Cleared saved values of " . implode(", ", $clear), "\n");
         }
         if ($cleared) {
             $retval = $acme->issueCertificate(
