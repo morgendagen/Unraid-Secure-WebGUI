@@ -1,39 +1,63 @@
 #!/bin/bash
+# Install the certificate as the WebGUI's nginx bundle, and reload nginx.
+# Run by acme.sh as the reload command: reloadcmd <bundle file>.
 # See https://github.com/acmesh-official/acme.sh/discussions/4548#discussioncomment-6797825
+#
+# acme.sh does not run the post hook when this fails, so failures post
+# their own alert notification.
+
+post_notification() {
+    /usr/local/emhttp/webGui/scripts/notify -e "Secure WebGUI" "$@"
+}
+
+fail() {
+    echo "$1"
+    post_notification \
+        -s "Certificate installation failed" \
+        -d "SSL certificate for ${Le_Domain:-the WebGUI}: $1" \
+        -i alert
+    exit 1
+}
 
 if [[ "$#" -ne 1 ]]; then
-    echo "Illegal number of parameters"
-    exit 1
+    fail "Illegal number of parameters"
 fi
 if [[ ! -v CERT_FULLCHAIN_PATH ]]; then
-    echo "CERT_FULLCHAIN_PATH is not set"
-    exit 1
+    fail "CERT_FULLCHAIN_PATH is not set"
 fi
 if [[ ! -v CERT_KEY_PATH ]]; then
-    echo "CERT_KEY_PATH is not set"
-    exit 1
-fi
-if [ ! -f "$0" ]; then
-    echo "$0 does not exist."
-    exit 1
+    fail "CERT_KEY_PATH is not set"
 fi
 if [ ! -f "$CERT_FULLCHAIN_PATH" ]; then
-    echo "$CERT_FULLCHAIN_PATH does not exist."
-    exit 1
+    fail "$CERT_FULLCHAIN_PATH does not exist"
 fi
 if [ ! -f "$CERT_KEY_PATH" ]; then
-    echo "$CERT_KEY_PATH does not exist."
-    exit 1
+    fail "$CERT_KEY_PATH does not exist"
 fi
 
+bundle="$1"
+tmp="$bundle.tmp"
+# Contains the private key.
+umask 077
+
 echo "Installing certificate..."
-cat "$CERT_FULLCHAIN_PATH" "$CERT_KEY_PATH" > "$1"
+# Write next to the bundle, then replace it, so nginx never sees a
+# partially written bundle.
+if ! cat "$CERT_FULLCHAIN_PATH" "$CERT_KEY_PATH" > "$tmp"; then
+    rm -f "$tmp"
+    fail "Failed to write $tmp"
+fi
+if ! mv -f "$tmp" "$bundle"; then
+    rm -f "$tmp"
+    fail "Failed to replace $bundle"
+fi
 
 echo "Reloading nginx..."
-/etc/rc.d/rc.nginx reload
+if ! /etc/rc.d/rc.nginx reload; then
+    fail "The certificate was installed in $bundle, but reloading nginx failed"
+fi
 
 echo "Posting notification..."
-/usr/local/emhttp/webGui/scripts/notify \
-    -e "Secure WebGUI" \
+post_notification \
     -s "Certificate renewed" \
     -d "SSL certificate for $Le_Domain was renewed"
