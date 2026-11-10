@@ -1,4 +1,5 @@
 <?php
+require_once(__DIR__ . "/DnsApiInfo.php");
 
 class ACME {
     /** The plugin's config directory. */
@@ -13,6 +14,8 @@ class ACME {
     private $accountConf = null;
     /** Cached output of `acme.sh --info --domain`, per domain. */
     private $domainConf = array();
+    /** Cached contents of `dnsapi_info.txt`, see `getDnsProviders()`. */
+    private $dnsProviders = null;
 
     /** `acme.sh` syslog levels, see `acme.sh --help`. */
     const SYSLOG_LEVEL_ERROR = 3;
@@ -73,7 +76,8 @@ class ACME {
     }
 
     /**
-     * Check whether `$dnsProvider` is the id of an installed dnsapi script.
+     * Check whether `$dnsProvider` is the id of an installed dnsapi script,
+     * described in `dnsapi_info.txt`.
      *
      * @param mixed $dnsProvider DNS provider id, e.g. `dns_cf`.
      * @return bool
@@ -81,57 +85,50 @@ class ACME {
     function isValidDnsProvider($dnsProvider) {
         return is_string($dnsProvider)
             && preg_match('/^dns_[a-z0-9_]+$/', $dnsProvider) === 1
-            && is_file($this->acmeshHome . "/dnsapi/$dnsProvider.sh");
+            && is_file($this->acmeshHome . "/dnsapi/$dnsProvider.sh")
+            && in_array($dnsProvider, array_column($this->getDnsProviders() ?? array(), 'Id'), true);
     }
 
     /**
-     * Get the option names a DNS provider declares in `dnsapi_info.txt`,
-     * both `Options` and `OptionsAlt`. Parsed the same way as `dnsapi.js`,
-     * so these are the inputs the page shows for the provider.
+     * Get the DNS providers described in `dnsapi_info.txt`.
+     *
+     * @return array[]|null Providers, see `DnsApiInfo::parse()`, or `null`
+     *                      if the info file could not be read.
+     */
+    function getDnsProviders() {
+        if ($this->dnsProviders === null) {
+            $text = @file_get_contents($this->getDnsProvidersFile());
+            if ($text === false) {
+                return null;
+            }
+            $this->dnsProviders = DnsApiInfo::parse($text);
+        }
+        return $this->dnsProviders;
+    }
+
+    /**
+     * Get the location of `dnsapi_info.txt`.
+     *
+     * @return string File path.
+     */
+    function getDnsProvidersFile() {
+        return $this->emhttp . "/dnsapi_info.txt";
+    }
+
+    /**
+     * Get the option names a DNS provider declares, both `Options` and
+     * `OptionsAlt`. These are the inputs the page shows for the provider.
      *
      * @param string $dnsProvider DNS provider id, see `isValidDnsProvider()`.
-     * @return string[]|null Option names, or `null` if the info file could
-     *                       not be read.
+     * @return string[] Option names, empty if the provider is unknown.
      */
     function getDnsProviderOptionNames($dnsProvider) {
-        $lines = @file($this->emhttp . "/dnsapi_info.txt", FILE_IGNORE_NEW_LINES);
-        if ($lines === false) {
-            return null;
-        }
-        $names = array();
-        // Providers are separated by empty lines, and start with their id.
-        $inProvider = false;
-        $inOptions = false;
-        $blockStart = true;
-        foreach ($lines as $line) {
-            if ($line === '') {
-                $blockStart = true;
-                $inProvider = false;
-                $inOptions = false;
-                continue;
-            }
-            if ($blockStart) {
-                $blockStart = false;
-                $inProvider = $line === $dnsProvider;
-                continue;
-            }
-            if (!$inProvider) {
-                continue;
-            }
-            if (str_starts_with($line, 'Options:') || str_starts_with($line, 'OptionsAlt:')) {
-                $inOptions = true;
-            } elseif (!str_starts_with($line, ' ')) {
-                $inOptions = false;
-            } elseif ($inOptions) {
-                // " <name> <title>[. <description>]"
-                $option = trim($line);
-                $pos = strpos($option, ' ');
-                if ($pos > 0) {
-                    $names[] = substr($option, 0, $pos);
-                }
+        foreach ($this->getDnsProviders() ?? array() as $provider) {
+            if ($provider['Id'] === $dnsProvider) {
+                return array_column(array_merge($provider['Opts'], $provider['OptsAlt']), 'Name');
             }
         }
-        return $names;
+        return array();
     }
 
     /**

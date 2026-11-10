@@ -1,6 +1,5 @@
 "use strict";
 import { AnsiUp } from './ansi_up.js?11'
-import { parseFile } from './dnsapi.js?11'
 
 export class ACME {
     constructor() {
@@ -25,9 +24,10 @@ export class ACME {
     loadDnsProviders() {
         var self = this;
         $.ajax({
-            url:'/plugins/ACME/dnsapi_info.txt?6',
-            success:function(infoTxt) {
-                self._dnsProviders = parseFile(infoTxt)
+            url:'/plugins/ACME/include/DnsProviders.php',
+            dataType:'json',
+            success:function(dnsProviders) {
+                self._dnsProviders = dnsProviders;
                 var dnsapiSelect = document.getElementById("ACME_DNSAPI");
                 self._dnsProviders.forEach((currentValue, index, arr) => {
                     dnsapiSelect.options[index] = new Option(currentValue.Name, currentValue.Id, currentValue.Id == self._currentDnsProvider, currentValue.Id == self._currentDnsProvider);

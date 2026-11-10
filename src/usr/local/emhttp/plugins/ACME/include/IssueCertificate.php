@@ -36,11 +36,9 @@ if (!$acme->isValidDnsProvider($dnsProvider)) {
     acme_fail("Invalid DNS provider");
 } elseif ($domain === null || $certFile === null) {
     acme_fail("Invalid server name or local TLD");
-} elseif (($allowedNames = $acme->getDnsProviderOptionNames($dnsProvider)) === null) {
-    acme_fail("Failed to read DNS provider info");
 } else {
     try {
-        $prepared = $acme->prepareOptions($domain, $submitted, $allowedNames);
+        $prepared = $acme->prepareOptions($domain, $submitted, $acme->getDnsProviderOptionNames($dnsProvider));
     } catch (InvalidArgumentException $e) {
         $prepared = null;
         acme_fail($e->getMessage());
