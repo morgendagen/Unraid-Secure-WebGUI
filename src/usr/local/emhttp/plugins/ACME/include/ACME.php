@@ -46,6 +46,18 @@ class ACME {
     /** Fallback PATH if the web server runs PHP with an empty environment. */
     const DEFAULT_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
 
+    /** Fallback HOME if the web server runs PHP with an empty environment. */
+    const DEFAULT_HOME = '/root';
+
+    /**
+     * Variables passed on to child processes from PHP's own environment.
+     * The proxy variables are used by curl, and so by `acme.sh`.
+     */
+    const INHERITED_ENVIRONMENT = array(
+        'PATH', 'HOME', 'LANG', 'LC_ALL', 'TZ',
+        'http_proxy', 'https_proxy', 'no_proxy', 'HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY',
+    );
+
     function __construct() {
         $this->plugin = '/boot/config/plugins/ACME';
         $this->emhttp = '/usr/local/emhttp/plugins/ACME';
@@ -608,17 +620,31 @@ class ACME {
     }
 
     /**
-     * Build the environment for a child process.
+     * Build the environment for a child process: `INHERITED_ENVIRONMENT`
+     * from PHP's own environment, plus `$env`.
+     *
+     * Nothing else is passed on. Under php-fpm, `getenv()` without a name
+     * also returns the request's FastCGI parameters (`REQUEST_METHOD`,
+     * `HTTP_COOKIE`, ...). Passed on, they made PHP scripts run by the
+     * hooks, such as Unraid's `notify`, act as a POST request without a
+     * CSRF token, and exit.
      *
      * @param array $env Additional environment variables.
      * @return array Environment.
      */
     private static function childEnvironment($env) {
-        $environment = array_merge(getenv(), $env);
-        if (empty($environment['PATH'])) {
-            $environment['PATH'] = self::DEFAULT_PATH;
+        $environment = array();
+        foreach (self::INHERITED_ENVIRONMENT as $name) {
+            // `true`: only the process environment, not FastCGI parameters.
+            $value = getenv($name, true);
+            if ($value !== false && $value !== '') {
+                $environment[$name] = $value;
+            }
         }
-        return $environment;
+        $environment += array('PATH' => self::DEFAULT_PATH, 'HOME' => self::DEFAULT_HOME);
+        // These win over `$env`, which can't contain them anyway, see
+        // `getDnsProviderOptionNames()`.
+        return array_merge($env, $environment);
     }
 
     /**
