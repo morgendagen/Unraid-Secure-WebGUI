@@ -46,7 +46,7 @@ _(DNS Provider)_:
 </div>
 
 &nbsp;
-: <input type="checkbox" id="ACME_FORCE_RENEWAL" name="ACME_FORCE_RENEWAL" value="force"><label for="ACME_FORCE_RENEWAL">Force certificate renewal</span></label>
+: <input type="checkbox" id="ACME_FORCE_RENEWAL" name="ACME_FORCE_RENEWAL" value="force"><label for="ACME_FORCE_RENEWAL">Force certificate renewal</label>
 
 &nbsp;
 : <input type="checkbox" id="ACME_USE_STAGING" name="ACME_USE_STAGING" value="staging"><label for="ACME_USE_STAGING">Use staging server, for testing</label>

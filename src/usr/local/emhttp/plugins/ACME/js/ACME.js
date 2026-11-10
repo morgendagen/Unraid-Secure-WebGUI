@@ -2,13 +2,22 @@
 import { AnsiUp } from './ansi_up.js?11'
 
 export class ACME {
-    constructor() {
+    /**
+     * @param {string} secretPattern Case-insensitive regular expression
+     *                               matched against option names to find
+     *                               secrets, `ACME::SECRET_PATTERN`.
+     * @param {string} secretPlaceholder Value the server sends in place of a
+     *                                   saved secret, `ACME::SECRET_PLACEHOLDER`.
+     *                                   Submitting it unchanged keeps the
+     *                                   saved secret.
+     */
+    constructor(secretPattern, secretPlaceholder) {
         var self = this;
         this._dnsProviders = [];
         this._currentEnvironment = {};
         this._currentDnsProvider = null;
-        this._secretPattern = /pass|pwd|secret|token|key|auth|credential|cookie/i;
-        this._secretPlaceholder = null;
+        this._secretPattern = new RegExp(secretPattern, "i");
+        this._secretPlaceholder = secretPlaceholder;
         this._nchanSubscriber = new NchanSubscriber('/sub/acmesh',{subscriber:'websocket', reconnectTimeout:5000});
         this._nchanSubscriber.on('message', function(data) {
             var box = $('pre#swaltext');
@@ -44,19 +53,6 @@ export class ACME {
      */
     setCurrentEnvironment(env) {
         this._currentEnvironment = env;
-    }
-
-    /**
-     * Configure which options are secrets. Must match the server side
-     * definition in ACME.php.
-     *
-     * @param {string} pattern Case-insensitive regular expression matched against option names.
-     * @param {string} placeholder Value the server sends in place of a saved secret.
-     *                             Submitting it unchanged keeps the saved secret.
-     */
-    setSecretOptions(pattern, placeholder) {
-        this._secretPattern = new RegExp(pattern, "i");
-        this._secretPlaceholder = placeholder;
     }
 
     /**
@@ -153,7 +149,7 @@ export class ACME {
         if (value.Optional) {
             helpText += " (optional)";
         }
-        p1.innerHTML = helpText;
+        p1.textContent = helpText;
         if (value.Description) {
             const p1 = document.createElement("p");
             blockquote.appendChild(p1);
@@ -169,9 +165,9 @@ export class ACME {
      * @param {*} sel SELECT element.
      */
     dnsProviderChanged(sel) {
-        var selectedIndex = sel.selectedIndex;
-        var dnsProviderInfo = this._dnsProviders[selectedIndex];
-        console.log("api:",dnsProviderInfo);
+        // No provider is selected if the list failed to load, or is empty.
+        var dnsProviderInfo = this._dnsProviders[sel.selectedIndex]
+            ?? { Opts: [], OptsTitle: '', OptsAlt: [], OptsAltTitle: '' };
     
         const optsDict = Object.fromEntries(
             dnsProviderInfo.Opts.map(item => [item.Name, item])
