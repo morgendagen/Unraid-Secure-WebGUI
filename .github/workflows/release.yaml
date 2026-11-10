@@ -4,51 +4,61 @@ on:
   release:
     types: [published]
 
+# Upload the release asset, and push the package to main.
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name }}
     steps:
-      - uses: actions/checkout@v3
-  
-      - name: Extract build version
-        id: get_version
-        uses: battila7/get-version-action@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check version
+        run: |
+          version="${TAG#v}"
+          plg_version=$(sed -n 's/^ *<!ENTITY version *"\([^"]*\)">$/\1/p' ACME.plg)
+          if [ "$plg_version" != "$version" ]; then
+            echo "::error::ACME.plg version '$plg_version' does not match release '$version'"
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "PACKAGE=ACME-$version-noarch-1.txz" >> "$GITHUB_ENV"
 
       - name: Build package
-        uses: addnab/docker-run-action@v3
-        with:
-          image: aclemons/slackware:15.0
-          options: -v ${{ github.workspace }}:/workspace -e VERSION=${{ steps.get_version.outputs.version-without-v }}
-          run: |
-            cd /workspace
-            ./scripts/build_package.sh
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/workspace" -w /workspace -e VERSION \
+            aclemons/slackware:15.0 ./scripts/build_package.sh
 
-      - name: Wait a bit
-        run: sleep 5
-
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: archive/ACME-${{ steps.get_version.outputs.version-without-v }}-noarch-1.txz
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" "archive/$PACKAGE"
 
       - name: Check out main
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
-          path: 'main-repo'
-      
-      - name: Add binary to archive folder
+          path: main-repo
+
+      - name: Add package to main, and update md5 in ACME.plg
+        working-directory: main-repo
         run: |
-          cd main-repo
+          plg_version=$(sed -n 's/^ *<!ENTITY version *"\([^"]*\)">$/\1/p' ACME.plg)
+          if [ "$plg_version" != "$VERSION" ]; then
+            echo "::error::ACME.plg version on main '$plg_version' does not match release '$VERSION'. Add archive/$PACKAGE and its md5 manually."
+            exit 1
+          fi
+          md5=$(md5sum "../archive/$PACKAGE" | cut -d ' ' -f 1)
+          echo "MD5: $md5"
           mkdir -p archive
-          cp ../archive/ACME-${{ steps.get_version.outputs.version-without-v }}-noarch-1.txz archive/
-          git branch
+          cp "../archive/$PACKAGE" archive/
+          sed -i "s/^\( *<!ENTITY md5 *\"\)[0-9a-f]*\(\">\)$/\1$md5\2/" ACME.plg
+          grep -q "<!ENTITY md5 *\"$md5\">" ACME.plg || { echo "::error::Failed to update md5 in ACME.plg"; exit 1; }
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          git add archive/ACME-${{ steps.get_version.outputs.version-without-v }}-noarch-1.txz
-          git commit -m "Added binary for version ${{ steps.get_version.outputs.version-without-v }}"
+          git add "archive/$PACKAGE" ACME.plg
+          git commit -m "Added binary for version $VERSION"
           git push
-      
-      - name: MD5
-        run: |
-          echo "MD5: `md5sum -b archive/ACME-${{ steps.get_version.outputs.version-without-v }}-noarch-1.txz  | awk '{print $1}'`"
