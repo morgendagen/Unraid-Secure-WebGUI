@@ -116,7 +116,9 @@ Every pull request is built by `build.yaml`, and the package is kept as an artif
 
    This should list the pull request build, e.g. `ACME-2026.11.08_pr35.1-noarch-1`. The Plugins page keeps showing the release version, as it reads the version from the installed `ACME.plg`, which `upgradepkg` doesn't change.
 
-This replaces the installed package, but doesn't run the `.plg` install script (`chmod` of the hooks, installing the cron job). On a server that already has the plugin installed, that is fine. The next plugin update from the WebGUI installs a release again.
+This replaces the installed package, but doesn't run the `.plg` install script, which installs the cron job. On a server that already has the plugin installed, the cron job is already there. The next plugin update from the WebGUI installs a release again.
+
+Packages built before the hooks were committed as executable contain them without the executable bit, and rely on the `.plg` install script to `chmod` them. When installing such a package with `upgradepkg`, run `chmod a+x /usr/share/ACME/scripts/*` afterwards, or acme.sh fails with "Permission denied" when installing the certificate.
 
 ### Quick iterations
 
