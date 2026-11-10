@@ -102,11 +102,19 @@ Use the version in `ACME.plg`, or the version check fails. Without a token, the 
 Every pull request is built by `build.yaml`, and the package is kept as an artifact named `ACME-<plg version>_pr<number>.<run>-noarch-1.txz`:
 
 1. Open the pull request's "Checks" tab, open the "Build Package" run, and download the artifact. GitHub delivers it as a zip.
-2. Copy the `.txz` to the server, and install it:
+2. Unzip it, copy the `.txz` to the server, and install it. Keep the file name, as `upgradepkg` reads the package name and version from it:
 
    ```sh
    upgradepkg --install-new --reinstall ACME-<version>-noarch-1.txz
    ```
+
+3. Check which package is installed:
+
+   ```sh
+   ls /var/log/packages/ | grep '^ACME-'
+   ```
+
+   This should list the pull request build, e.g. `ACME-2026.11.08_pr35.1-noarch-1`. The Plugins page keeps showing the release version, as it reads the version from the installed `ACME.plg`, which `upgradepkg` doesn't change.
 
 This replaces the installed package, but doesn't run the `.plg` install script (`chmod` of the hooks, installing the cron job). On a server that already has the plugin installed, that is fine. The next plugin update from the WebGUI installs a release again.
 
