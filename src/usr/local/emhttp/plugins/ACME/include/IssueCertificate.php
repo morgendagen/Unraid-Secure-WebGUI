@@ -38,7 +38,7 @@ if (!$acme->isValidDnsProvider($dnsProvider)) {
     acme_fail("Invalid server name or local TLD");
 } else {
     try {
-        $prepared = $acme->prepareOptions($domain, $submitted);
+        $prepared = $acme->prepareOptions($domain, $submitted, $acme->getDnsProviderOptionNames($dnsProvider));
     } catch (InvalidArgumentException $e) {
         $prepared = null;
         acme_fail($e->getMessage());

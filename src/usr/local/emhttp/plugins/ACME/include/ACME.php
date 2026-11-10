@@ -1,4 +1,5 @@
 <?php
+require_once(__DIR__ . "/DnsApiInfo.php");
 
 class ACME {
     /** The plugin's config directory. */
@@ -13,6 +14,8 @@ class ACME {
     private $accountConf = null;
     /** Cached output of `acme.sh --info --domain`, per domain. */
     private $domainConf = array();
+    /** Cached contents of `dnsapi_info.txt`, see `getDnsProviders()`. */
+    private $dnsProviders = null;
 
     /** `acme.sh` syslog levels, see `acme.sh --help`. */
     const SYSLOG_LEVEL_ERROR = 3;
@@ -73,7 +76,8 @@ class ACME {
     }
 
     /**
-     * Check whether `$dnsProvider` is the id of an installed dnsapi script.
+     * Check whether `$dnsProvider` is the id of an installed dnsapi script,
+     * described in `dnsapi_info.txt`.
      *
      * @param mixed $dnsProvider DNS provider id, e.g. `dns_cf`.
      * @return bool
@@ -81,7 +85,50 @@ class ACME {
     function isValidDnsProvider($dnsProvider) {
         return is_string($dnsProvider)
             && preg_match('/^dns_[a-z0-9_]+$/', $dnsProvider) === 1
-            && is_file($this->acmeshHome . "/dnsapi/$dnsProvider.sh");
+            && is_file($this->acmeshHome . "/dnsapi/$dnsProvider.sh")
+            && in_array($dnsProvider, array_column($this->getDnsProviders() ?? array(), 'Id'), true);
+    }
+
+    /**
+     * Get the DNS providers described in `dnsapi_info.txt`.
+     *
+     * @return array[]|null Providers, see `DnsApiInfo::parse()`, or `null`
+     *                      if the info file could not be read.
+     */
+    function getDnsProviders() {
+        if ($this->dnsProviders === null) {
+            $text = @file_get_contents($this->getDnsProvidersFile());
+            if ($text === false) {
+                return null;
+            }
+            $this->dnsProviders = DnsApiInfo::parse($text);
+        }
+        return $this->dnsProviders;
+    }
+
+    /**
+     * Get the location of `dnsapi_info.txt`.
+     *
+     * @return string File path.
+     */
+    function getDnsProvidersFile() {
+        return $this->emhttp . "/dnsapi_info.txt";
+    }
+
+    /**
+     * Get the option names a DNS provider declares, both `Options` and
+     * `OptionsAlt`. These are the inputs the page shows for the provider.
+     *
+     * @param string $dnsProvider DNS provider id, see `isValidDnsProvider()`.
+     * @return string[] Option names, empty if the provider is unknown.
+     */
+    function getDnsProviderOptionNames($dnsProvider) {
+        foreach ($this->getDnsProviders() ?? array() as $provider) {
+            if ($provider['Id'] === $dnsProvider) {
+                return array_column(array_merge($provider['Opts'], $provider['OptsAlt']), 'Name');
+            }
+        }
+        return array();
     }
 
     /**
@@ -199,12 +246,16 @@ class ACME {
      *
      * @param string $domain Domain the certificate is issued for.
      * @param array $submitted Submitted option names and values.
+     * @param string[] $allowedNames Option names the DNS provider declares,
+     *                               see `getDnsProviderOptionNames()`. Any
+     *                               other name is rejected, so the form
+     *                               can't set e.g. `PATH` or `LD_PRELOAD`.
      * @return array `['options' => [name => value], 'clear' => [name], 'changed' => bool]`,
      *               where `changed` is `true` if any option differs from
      *               its saved value.
      * @throws InvalidArgumentException If an option name or value is invalid.
      */
-    function prepareOptions($domain, $submitted) {
+    function prepareOptions($domain, $submitted, $allowedNames) {
         $saved = $this->getSavedOptions($domain);
         $options = array();
         $clear = array();
@@ -212,6 +263,9 @@ class ACME {
         foreach ($submitted as $name => $value) {
             if (!self::isValidOptionName($name)) {
                 throw new InvalidArgumentException("Invalid option name");
+            }
+            if (!in_array($name, $allowedNames, true)) {
+                throw new InvalidArgumentException("Unknown option $name for the selected DNS provider");
             }
             if (!is_string($value)) {
                 throw new InvalidArgumentException("Invalid value for $name");
