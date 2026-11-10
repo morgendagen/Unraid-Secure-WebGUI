@@ -1,0 +1,42 @@
+name: Build Package
+
+# Build pull requests, and keep the package as an artifact, for installing
+# pre-releases manually.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Determine version
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          plg_version=$(sed -n 's/^ *<!ENTITY version *"\([^"]*\)">$/\1/p' ACME.plg)
+          if [ -z "$plg_version" ]; then
+            echo "::error::Failed to read the version from ACME.plg"
+            exit 1
+          fi
+          # Slackware package versions can't contain '-'.
+          version="${plg_version}_pr${PR_NUMBER}.${RUN_NUMBER}"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "PACKAGE=ACME-$version-noarch-1.txz" >> "$GITHUB_ENV"
+
+      - name: Build package
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/workspace" -w /workspace -e VERSION \
+            aclemons/slackware:15.0 ./scripts/build_package.sh
+
+      - name: Upload package
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ env.PACKAGE }}
+          path: archive/${{ env.PACKAGE }}
+          if-no-files-found: error
